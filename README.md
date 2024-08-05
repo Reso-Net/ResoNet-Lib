@@ -7,3 +7,6 @@ This Node.js library provides an interface to interact with the [Resonite](https
 - Fetching contacts of logged in account
 - Remove friend(UNTESTED)
 - Sending both Raw and Text messages
+
+# Notes
+- I used [mvcontact-bot](https://github.com/Lexevolution/mvcontact-bot) by [Lexevolution](https://github.com/Lexevolution) as learning material to figure out how some things worked.
