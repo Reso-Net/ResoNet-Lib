@@ -1,3 +1,5 @@
+# THIS LIBRARY IS VERY WIP
+
 # ResoNet-Lib
 This Node.js library provides an interface to interact with the [Resonite](https://resonite.com) API. It also supports connections to the [SignalR](https://dotnet.microsoft.com/en-us/apps/aspnet/signalr) endpoints for real-time communication.
 
