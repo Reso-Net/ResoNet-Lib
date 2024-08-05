@@ -1,8 +1,9 @@
 # ResoNet-Lib
-This is a basic Resonite API and SignalR endpoint library written in NodeJS.
+This Node.js library provides an interface to interact with the [Resonite](https://resonite.com) API. It also supports connections to the [SignalR](https://dotnet.microsoft.com/en-us/apps/aspnet/signalr) endpoints for real-time communication.
 
 # Features
-- Recieve SignalR events
-- Send/Recieve messages
-- Search users up and retrieve their profile including badges too
-- Add/Remove users
+- Search user by id/name
+- Searching users by id/name
+- Fetching contacts of logged in account
+- Remove friend(UNTESTED)
+- Sending both Raw and Text messages
