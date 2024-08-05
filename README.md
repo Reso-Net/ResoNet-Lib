@@ -8,5 +8,14 @@ This Node.js library provides an interface to interact with the [Resonite](https
 - Remove friend(UNTESTED)
 - Sending both Raw and Text messages
 
+# Config example 
+```json
+{
+  "username": "",
+  "password": "",
+  "totp": "" 
+}
+```
+
 # Notes
 - I used [mvcontact-bot](https://github.com/Lexevolution/mvcontact-bot) by [Lexevolution](https://github.com/Lexevolution) as learning material to figure out how some things worked.
