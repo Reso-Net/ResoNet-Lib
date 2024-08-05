@@ -1,0 +1,17 @@
+{
+  "name": "resonet-lib",
+  "version": "1.0.0",
+  "description": "NodeJS library that interacts with the Resonite API and SignalR endpoints",
+  "main": "index.js",
+  "scripts": {
+  },
+  "keywords": [
+    "Resonite",
+    "SignalR",
+    "Node",
+    "NodeJS",
+    "JS"
+  ],
+  "author": "LeCloutPanda",
+  "license": "MIT"
+}
