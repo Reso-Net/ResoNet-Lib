@@ -93,7 +93,6 @@ class ResoNetLib {
         }
         else {
             let response = await res.text();
-            //this.error(`Unexpected return code ${res.status}: ${response}`);
             throw new Error(`Unexpected return code ${res.status}: ${response}`);
         }
     
@@ -101,10 +100,6 @@ class ResoNetLib {
     }
     
     async logout() {
-        if (!this.data.loggedIn) {
-            this.error("Not logged in! Can't log out.");
-        }
-    
         const res = await fetch(`${API}/userSessions/${this.data.userId}/${this.data.token}`,
         {
             method: "DELETE",
@@ -114,7 +109,6 @@ class ResoNetLib {
         });
     
         if (res.status !== 200){
-            //this.error(`Unexpected HTTP status when logging out (${res.status} ${res.statusText}): ${res.body}`);
             throw new Error(`Unexpected HTTP status when logging out (${res.status} ${res.statusText}): ${res.body}`);
         }
     
@@ -136,26 +130,7 @@ class ResoNetLib {
         .withAutomaticReconnect()
         .configureLogging(signalR.LogLevel.Critical)
         .build();
-    
-        /*
-        signalRConnection.on("ReceiveMessage", async (message) => {
-            let sender = message.senderId;
-            let content = message.content;
-            let type = message.messageType;
-            mainWindow.webContents.send('recieveMessage', { sender, content, type });
-        
-            let readMessageData = {
-                "senderId": message.senderId,
-                "readTime": (new Date(Date.now())).toISOString(),
-                "ids": [
-                message.id
-                ]
-            }
-        
-            await signalRConnection.send("MarkMessagesRead", readMessageData);
-        });
-        */
-    
+
         this.signalRConnection.start();
         this.log("Starting SignalR");
     }
@@ -166,7 +141,6 @@ class ResoNetLib {
         this.log("Stopping SignalR.");
     }
 
-    // Create side function that automatically parses all avaliable varaibles into a string and return that instead of just raw json
     async fetchUser(userid) {
         let url = `${API}users/${userid}` + (userid.startsWith('U-') ? "" : "?byusername=true");
         this.log(`Fetching user data for "${userid}"`);
@@ -198,64 +172,90 @@ class ResoNetLib {
         }
     }
 
-    async addFriend(user) {
-        if (!this.data.loggedIn) {
-            this.error("Not logged in! Can't add friend");
+    async addFriend(userid) {
+        if (!userid.startsWith("U-")) {
+            this.error("Not a valid user id!");
         }
 
-        user = await this.fetchUser(user);
+        this.log(`Attemping to add user ${userid} as a contact`);
 
-        contact = {};
-        //contact.OwnerId = this.data.userId;
-        //contact.ContactUserId = user.id;
-        //contact.ContactUsername = user.username;
-        //contact.friendStatus = "Requested";
+        const user = await this.fetchUser(userid);
+        const contactData = {
+            "ownerId": this.data.userId,
+            "id": user.id,
+            "contactUsername": user.username,
+            "contactStatus": "Accepted"
+        };
+
+        await this.signalRConnection.send("UpdateContact", contactData).then(() => {
+            this.log(`Successfully added user ${userid} as a contact`);
+        }).catch(async (error) => {
+            this.error(error);
+        });
     }
-
+    
     async removeFriend(userid) {
         if (!this.data.loggedIn) {
-            this.error("Not logged in! Can't remove friend");
+            this.error("Not logged in! Can't remove friend.");
         }
 
-        await fetch(`${baseAPIURL}/users/${this.data.userId}/friends/${userid}`,
+        if (!userid.startsWith("U-")) {
+            this.error("Not a valid user id!");
+        }
+
+        this.log(`Attemping to remove user ${userid} as a contact`);
+
+        await fetch(`${API}/users/${this.data.userId}/friends/${userid}`,
         {
             method: "DELETE",
             headers: {
                 "Authorization": this.data.fullToken
             }
-        }).then(() => {
-            this.log(`Successfully removed "${userid}" as a contact.`);
+        }).catch(async (error) => {
+            this.error(error);
+        });
+
+        const contact = this.getContact(userid);
+        contact.contactStatus = "Ignored";
+    
+        await this.signalRConnection.send("UpdateContact", contact).then(() => {
+            this.log(`Successfully removed user ${userid} as a contact`);
         }).catch(async (error) => {
             this.error(error);
         });
     }
 
-    async blockuser(user) {
-        if (!this.data.loggedIn) {
-            this.error("Not logged in! Can't block friend");
+    async getContact(userid) {
+        if (!userid.startsWith("U-")) {
+            this.error("Failed to get contact, Invalid UserID.");
         }
+        
+        const contacts = await this.fetchContacts();
+        const contact = contacts.find(contact => contact.id === userid);
+        
+        if (contact == null) {
+            this.error("No vaid contact found.");
+        }
+        
+        return contact;
+    }
+
+    async blockuser(user) {
+        // TODO: finish implmenting this function
+        this.error("Not implemented yet.")
     }
 
     async sendRawMessage(messageData){
-        if (!this.data.loggedIn) {
-            this.error("Not logged in! Can't send raw message.");
-        }
-
         await this.signalRConnection.send("SendMessage", messageData).catch(async (error) => {
             this.error(error);
         });
     }
 
     async sendTextMessage(userid, content) {
-        if (!this.data.loggedIn) {
-            this.error("Not logged in! Can't send message.");
-        }
-
         if (!userid.startsWith('U-')) {
             this.error("UserId is not a user id.")
             return;
-        } 
-        else if (content.trim() == "") {
+        } else if (content.trim() == "") {
             this.error("Content is null");
             return;
         }
@@ -276,13 +276,18 @@ class ResoNetLib {
     }
 
     async fetchContacts() {
-        if (!this.data.loggedIn) {
-            this.error("Not logged in! Can't fetch contacts.");
-        }
-
         const res = await fetch(`${API}/users/${this.data.userId}/contacts`, {headers: {"Authorization": this.data.fullToken}});
         let json = await res.json();      
         return json;
+    }
+
+    formatIconUrl(url) {
+        try {
+            return url.replace('resdb://', ASSET_URL).replace('.webp', '').replace('.png', '');
+        }
+        catch {
+            return 'INVALID_URL';
+        }
     }
 
     log(message) {
@@ -295,15 +300,6 @@ class ResoNetLib {
     
     error(message) {
         console.error(`[${Date.now()} ERROR] ${message}`);
-    }
-
-    formatIconUrl(url) {
-        try {
-            return url.replace('resdb://', ASSET_URL).replace('.webp', '').replace('.png', '');
-        }
-        catch {
-            return 'INVALID_URL';
-        }
     }
 }
 module.exports = ResoNetLib;
