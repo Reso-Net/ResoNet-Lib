@@ -3,15 +3,18 @@
   "version": "1.0.0",
   "description": "NodeJS library that interacts with the Resonite API and SignalR endpoints",
   "main": "index.js",
-  "scripts": {
-  },
+  "scripts": {},
   "keywords": [
     "Resonite",
     "SignalR",
-    "Node",
     "NodeJS",
+    "Node",
     "JS"
   ],
   "author": "LeCloutPanda",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@microsoft/signalr": "^8.0.7",
+    "punycode": "^2.3.1"
+  }
 }
