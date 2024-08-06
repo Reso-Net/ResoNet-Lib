@@ -223,7 +223,7 @@ class ResoNetLib {
             this.error(error);
         });
 
-        const contact = this.getContact(userid);
+        const contact = this.fetchContact(userid);
         contact.contactStatus = "Ignored";
     
         await this.signalRConnection.send("UpdateContact", contact).then(() => {
@@ -234,7 +234,7 @@ class ResoNetLib {
     }
 
     // Fetches contact information using the U-userID, Must be logged in.
-    async getContact(userid) {
+    async fetchContact(userid) {
         if (!userid.startsWith("U-")) {
             this.error("Failed to get contact, Invalid UserID.");
         }
