@@ -24,6 +24,7 @@ function GenerateUID(){
     return result;
 }
 
+// Library initialization 
 class ResoNetLib {
     constructor(config) {
         this.config = {
@@ -43,7 +44,7 @@ class ResoNetLib {
         }
 
         this.signalRConnection = undefined;
-        this.log("Intializing Client.");
+        this.log("Initializing Client.");
     }
 
     async start() {
@@ -56,6 +57,7 @@ class ResoNetLib {
         await this.stopSignalR();
     }
 
+// Log into Resonite using user Credentials. 
     async login() {   
         if (this.data.loggedIn) {
             this.error("Already logged in!");
@@ -98,7 +100,8 @@ class ResoNetLib {
     
         this.log("Successfully Logged in");
     }
-    
+
+    // Logs out signed in user. 
     async logout() {
         const res = await fetch(`${API}/userSessions/${this.data.userId}/${this.data.token}`,
         {
@@ -118,6 +121,7 @@ class ResoNetLib {
         this.data.userId = "";
     }
     
+// Starts SignalIR after login, Use other functions as required from here on.
     async startSignalR() {
         this.signalRConnection = new signalR.HubConnectionBuilder()
         .withUrl(`${API}/hub`, {
@@ -135,12 +139,14 @@ class ResoNetLib {
         this.log("Starting SignalR");
     }
     
+// Stops SignalIR,
     async stopSignalR() {
         await this.signalRConnection.stop();
         this.signalRConnection = undefined;
         this.log("Stopping SignalR.");
     }
 
+// Fetches the signed in users information 
     async fetchUser(userid) {
         let url = `${API}users/${userid}` + (userid.startsWith('U-') ? "" : "?byusername=true");
         this.log(`Fetching user data for "${userid}"`);
@@ -155,6 +161,7 @@ class ResoNetLib {
         }
     }
 
+    // Searches other users information using U-UserIDs. Can be used to return usernames for other functions. 
     async fetchUsers(query) {
         var apiUrl = ""
         if (query.startsWith("U-")) apiUrl = `${API}/users/${query}`;
@@ -172,12 +179,13 @@ class ResoNetLib {
         }
     }
 
+// Use this function to add a contact using the signed in account. Requires the full User ID with leading U-
     async addFriend(userid) {
         if (!userid.startsWith("U-")) {
             this.error("Not a valid user id!");
         }
 
-        this.log(`Attemping to add user ${userid} as a contact`);
+        this.log(`Attempting to add user ${userid} as a contact`);
 
         const user = await this.fetchUser(userid);
         const contactData = {
@@ -193,7 +201,8 @@ class ResoNetLib {
             this.error(error);
         });
     }
-    
+
+ //   Use this function to remove contact for the signed in account using the userID Must be logged in. 
     async removeFriend(userid) {
         if (!this.data.loggedIn) {
             this.error("Not logged in! Can't remove friend.");
@@ -203,7 +212,7 @@ class ResoNetLib {
             this.error("Not a valid user id!");
         }
 
-        this.log(`Attemping to remove user ${userid} as a contact`);
+        this.log(`Attempting to remove user ${userid} as a contact`);
 
         await fetch(`${API}/users/${this.data.userId}/friends/${userid}`,
         {
@@ -225,6 +234,7 @@ class ResoNetLib {
         });
     }
 
+// Fetches user information using the U-userID, Can be used to retrieve display usernames which are easier to read.
     async getContact(userid) {
         if (!userid.startsWith("U-")) {
             this.error("Failed to get contact, Invalid UserID.");
@@ -234,23 +244,26 @@ class ResoNetLib {
         const contact = contacts.find(contact => contact.id === userid);
         
         if (contact == null) {
-            this.error("No vaid contact found.");
+            this.error("No valid contact found.");
         }
         
         return contact;
     }
 
+// Blocks user for the signed in account
     async blockuser(user) {
-        // TODO: finish implmenting this function
+        // TODO: finish implementing this function
         this.error("Not implemented yet.")
     }
 
+// Sends RAW message, 
     async sendRawMessage(messageData){
         await this.signalRConnection.send("SendMessage", messageData).catch(async (error) => {
             this.error(error);
         });
     }
 
+// Sends a standard text message to the specified contact using the signed in account. 
     async sendTextMessage(userid, content) {
         if (!userid.startsWith('U-')) {
             this.error("UserId is not a user id.")
@@ -275,6 +288,7 @@ class ResoNetLib {
         });
     }
 
+// Fetches the contact list of the signed in account from the api.
     async fetchContacts() {
         const res = await fetch(`${API}/users/${this.data.userId}/contacts`, {headers: {"Authorization": this.data.fullToken}});
         let json = await res.json();      
