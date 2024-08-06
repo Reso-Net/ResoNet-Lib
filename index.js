@@ -60,7 +60,7 @@ class ResoNetLib {
         await this.stopSignalR();
     }
 
-// Log into Resonite using user Credentials. 
+    // Log into Resonite using user Credentials. 
     async login() {   
         if (this.data.loggedIn) {
             this.error("Already logged in!");
@@ -101,7 +101,7 @@ class ResoNetLib {
             throw new Error(`Unexpected return code ${res.status}: ${response}`);
         }
     
-        this.log("Successfully Logged in");
+        this.log(`Successfully Logged into ${this.data.username}(${this.data.userId})`);
     }
 
     // Logs out signed in user. 

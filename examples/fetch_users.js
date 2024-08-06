@@ -6,7 +6,7 @@ const client = new ResoNetLib();
 
 async function setup() {
     // This is the username we are going to search for
-    let query = "Panda";
+    let query = "Resonite";
     // Call the Fetch Users function with a seach query and print out the username and id for each found result
     const users = await client.fetchUsers(query);
     // Print out the fact we found x amount of users with our search query
