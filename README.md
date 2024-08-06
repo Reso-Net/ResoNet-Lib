@@ -27,8 +27,8 @@ const client = new  ResoNetLib(config);
 async function  setup() {
 	await client.start();
 	const contacts = await  client.fetchContacts();
-  contacts.forEach(contact  => {
-    client.log(`Username ${contact.contactUsername}, Contact Status ${contact.contactStatus}, Is Accepted: ${contact.isAccepted}`);
+	contacts.forEach(contact  => {
+    		client.log(`Username ${contact.contactUsername}, Contact Status ${contact.contactStatus}, Is Accepted: ${contact.isAccepted}`);
 	})
 }
 setup();
