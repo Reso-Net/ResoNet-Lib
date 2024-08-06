@@ -1,21 +1,36 @@
 # ResoNet-Lib
-This Node.js library provides an interface to interact with the [Resonite](https://resonite.com) API. It also supports connections to the [SignalR](https://dotnet.microsoft.com/en-us/apps/aspnet/signalr) endpoints for real-time communication.
+ResoNet-Lib is a Node.js library that provides an easy way to interface with the [Resonite](https://resonite.com) Api and its [SignalR](https://dotnet.microsoft.com/en-us/apps/aspnet/signalr) endpoints.
 
-# Basic Usage(Docs coming soon™)
+## How to setup
 - Install the library by running ``npm install github:LeCloutPanda/ResoNet-Lib``
 - Create a new instance of ``ResoNetLib`` and supply a custom ``config`` that follows the config scheme below
-- Call ``ResoNetLib.start()`` and it should login to the api and start SignalR
-- Call what ever functions you may need to by doing ``await functionName();``
+- Call ``client.start()`` to login and start SignalR
+- Call what ever functions you may need for example ``const user = await client.fetchUser("U-LeCloutPanda");``
 
-# Config example 
+## Example Config
 ```json
 {
-  "username": "",
-  "password": "",
-  "totp": "" 
+	"username": "",
+	"password": "",
+	"totp": "" 
 }
 ```
+*TOTP  is only needed if you use TOTP on the account*
 
-# Notes
-- If the Resonite account has TOTP enabled for login make sure you have it in the config, it should be 6 digits long.
-- I used [mvcontact-bot](https://github.com/Lexevolution/mvcontact-bot) by [Lexevolution](https://github.com/Lexevolution) as learning material to figure out how some things worked.
+## Example Class
+```js
+const ResoNetLib = require('resonet-lib');
+const config = require('config.json');
+
+const client = new  ResoNetLib(config);
+
+async function  setup() {
+	await client.start();
+	const contacts = await  client.fetchContacts();
+  contacts.forEach(contact  => {
+    client.log(`Username ${contact.contactUsername}, Contact Status ${contact.contactStatus}, Is Accepted: ${contact.isAccepted}`);
+	})
+}
+setup();
+```
+More examples can be found in the [examples](https://github.com/LeCloutPanda/ResoNet-Lib/tree/main/examples) folder.
