@@ -4,32 +4,32 @@ Fetch User takes in a ``query`` and returns the json of the of the founds users 
 ## Example Output
 ```json
 {
-    "id": "U-Resonite",
-    "username": "Resonite",
-    "normalizedUsername": "resonite",
-    "registrationDate": "2023-07-24T05:32:10.1300682Z",
-    "isVerified": true,
-    "isLocked": false,
-    "supressBanEvasion": false,
-    "2fa_login": false,
-    "profile": {
-      "iconUrl": "resdb:///264a3cdc5c149326aefd44d40b23a068032c716d3966ca5dc883775eb236ac10.webp",
-      "displayBadges": []
-    }
+  "id": "U-Resonite",
+  "username": "Resonite",
+  "normalizedUsername": "resonite",
+  "registrationDate": "2023-07-24T05:32:10.1300682Z",
+  "isVerified": true,
+  "isLocked": false,
+  "supressBanEvasion": false,
+  "2fa_login": false,
+  "profile": {
+    "iconUrl": "resdb:///264a3cdc5c149326aefd44d40b23a068032c716d3966ca5dc883775eb236ac10.webp",
+    "displayBadges": []
+  }
 },
 {
-    "id": "U-Resonite-DevBot",
-    "username": "Resonite DevBot",
-    "normalizedUsername": "resonite devbot",
-    "registrationDate": "2023-07-24T05:32:14.641007Z",
-    "isVerified": true,
-    "isLocked": false,
-    "supressBanEvasion": false,
-    "2fa_login": false,
-    "tags": [
-      "platform admin",
-      "moderation lead"
-    ]
+  "id": "U-Resonite-DevBot",
+  "username": "Resonite DevBot",
+  "normalizedUsername": "resonite devbot",
+  "registrationDate": "2023-07-24T05:32:14.641007Z",
+  "isVerified": true,
+  "isLocked": false,
+  "supressBanEvasion": false,
+  "2fa_login": false,
+  "tags": [
+    "platform admin",
+    "moderation lead"
+  ]
 }
 ```
 

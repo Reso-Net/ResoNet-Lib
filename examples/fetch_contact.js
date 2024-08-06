@@ -12,7 +12,7 @@ async function setup() {
     await client.login();
 
     // We fetch the logged in users contacts
-    const contact = await client.fetchContact("U-LeCloutPanda");
+    const contact = await client.fetchContact("U-Resonite");
     // Log the contact if one is found
     if (contact) {
         client.log(`Username ${contact.contactUsername}, Contact Status ${contact.contactStatus}, Is Accepted: ${contact.isAccepted}`);
