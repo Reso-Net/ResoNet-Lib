@@ -1,7 +1,7 @@
 // This is to load the library
 const ResoNetLib = require('resonet-lib');
 
-// This is to instantiate an instance of the ResoNetLib client
+// This is to initiate an instance of the ResoNetLib client
 const client = new ResoNetLib();
 
 async function setup() {

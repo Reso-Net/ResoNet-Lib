@@ -3,7 +3,7 @@ const ResoNetLib = require('resonet-lib');
 // Load the config to be used for the client
 const config = require('../config.json');
 
-// This is to instantiate an instance of the ResoNetLib client
+// This is to initiate an instance of the ResoNetLib client
 const client = new ResoNetLib(config);
 
 async function setup() {

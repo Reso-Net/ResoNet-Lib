@@ -164,7 +164,7 @@ class ResoNetLib {
         }
     }
 
-    // Searchs users based on query returning list of users, this is the equivalent of https://api.resonite.com/users?name=panda
+    // Searches users based on query returning list of users, this is the equivalent of https://api.resonite.com/users?name=panda
     async fetchUsers(query) {      
         this.log(`Fetching users with name of "${query}"`);
         const res = await fetch(`${API}/users?name=${query}`);
