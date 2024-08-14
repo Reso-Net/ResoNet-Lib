@@ -294,6 +294,20 @@ class ResoNetLib {
         return json;
     }
 
+    // Fetch all public facing sessions
+    async fetchSessions() {
+        const res = await fetch(`${API}/sessions`);
+        let json = await res.json();
+        return json;
+    }
+
+    // Fetch session data for specific session
+    async fetchSession(sessionId) {
+        const res = await fetch(`${API}/sessions/sessionId`);
+        let json = await res.json();
+        return json;
+    }
+
     // Formats image urls to be usable 
     formatIconUrl(url) {
         try {
