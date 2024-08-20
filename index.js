@@ -294,6 +294,21 @@ class ResoNetLib {
         return json;
     }
 
+    async isContact(userid) {
+        if (!userid.startsWith("U-")) {
+            this.error("Failed to get contact, Invalid UserID.");
+        }
+        
+        const contacts = await this.fetchContacts();
+        const contact = contacts.find(contact => contact.id === userid);
+        
+        if (contact != null && contact.contactStatus == "Accepted") {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     // Fetch all public facing sessions
     async fetchSessions() {
         const res = await fetch(`${API}/sessions`);
