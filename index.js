@@ -43,7 +43,9 @@ class ResoNetLib {
                 "token": "",
                 "fullToken": "",
                 "tokenExpiry": "",
-                "loggedIn": false
+                "loggedIn": false,
+                "contacts": {},
+                "sessions": {}
             }
     
             this.signalRConnection = undefined;
@@ -100,6 +102,9 @@ class ResoNetLib {
             let response = await res.text();
             throw new Error(`Unexpected return code ${res.status}: ${response}`);
         }
+
+        this.data.contacts = await this.fetchContacts();
+        this.data.sessions = await this.fetchSessions();
     
         this.log(`Successfully Logged into ${this.data.username}(${this.data.userId})`);
     }
@@ -122,6 +127,8 @@ class ResoNetLib {
         this.data.fullToken = "";
         this.data.token = "";
         this.data.userId = "";
+        this.data.contacts = {};
+        this.data.sessions = {};
     }
     
     // Starts SignalIR after login, Use other functions as required from here on.
@@ -139,6 +146,11 @@ class ResoNetLib {
         .build();
 
         this.signalRConnection.start();
+
+        this.signalRConnection.on("ReceiveSessionUpdate", async (session) => {
+            this.updateSessions(session);
+        });
+
         this.log("Starting SignalR");
     }
     
@@ -301,7 +313,9 @@ class ResoNetLib {
         
         const contacts = await this.fetchContacts();
         const contact = contacts.find(contact => contact.id === userid);
-        
+
+        console.log(contact);
+
         if (contact != null && contact.contactStatus == "Accepted") {
             return true;
         } else {
@@ -321,6 +335,19 @@ class ResoNetLib {
         const res = await fetch(`${API}/sessions/sessionId`);
         let json = await res.json();
         return json;
+    }
+
+    async updateSessions(sessionUpdate) {
+        // Assuming this.data.sessions is the array where session objects are stored
+        const sessions = this.data.sessions;
+    
+        const index = sessions.findIndex(session => session.sessionId === sessionUpdate.sessionId);
+      
+        if (index !== -1) {
+            sessions[index] = sessionUpdate;
+        } else {
+            sessions.push(sessionUpdate);
+        }
     }
 
     // Formats image urls to be usable 
