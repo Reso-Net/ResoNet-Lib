@@ -154,6 +154,10 @@ class ResoNetLib extends EventEmitter {
             this.emit("sessionUpdateEvent", session);
         });
 
+        this.signalRConnection.on("ReceiveMessage", async (message) => {
+            this.emit("messageRecieveEvent", message);
+        });
+
         this.log("Starting SignalR");
     }
     
