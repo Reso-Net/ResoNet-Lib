@@ -1,5 +1,6 @@
 const {randomUUID, createHash, randomBytes} = require("crypto");
 const signalR = require("@microsoft/signalr");
+const EventEmitter = require("events");
 
 const API = "https://api.resonite.com/";
 const ASSET_URL = "https://assets.resonite.com/"
@@ -25,8 +26,9 @@ function GenerateUID(){
 }
 
 // Library initialization 
-class ResoNetLib {
+class ResoNetLib extends EventEmitter {
     constructor(config = null) {
+        super();
         if (config == null) {
             this.warning("No config found! Some functions may not work.");
         } else {
@@ -149,6 +151,7 @@ class ResoNetLib {
 
         this.signalRConnection.on("ReceiveSessionUpdate", async (session) => {
             this.updateSessions(session);
+            this.emit("sessionUpdateEvent", session);
         });
 
         this.log("Starting SignalR");
