@@ -2,7 +2,7 @@
 ResoNet-Lib is a Node.js library that provides an easy way to interface with the [Resonite](https://resonite.com) Api and its [SignalR](https://dotnet.microsoft.com/en-us/apps/aspnet/signalr) endpoints.
 
 ## How to setup
-- Install the library by running ``npm install github:LeCloutPanda/ResoNet-Lib``
+- Install the library by running ``npm install github:Reso-Net/ResoNet-Lib``
 - Create a new instance of ``ResoNetLib`` and supply a custom ``config`` that follows the config scheme below
 - Call ``client.start()`` to login and start SignalR
 - Call what ever functions you may need for example ``const user = await client.fetchUser("U-LeCloutPanda");``
