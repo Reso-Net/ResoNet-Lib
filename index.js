@@ -154,6 +154,11 @@ class ResoNetLib extends EventEmitter {
             this.emit("sessionUpdateEvent", session);
         });
 
+        this.signalRConnection.on("RemoveSession", async (session) => {
+            this.updateSessions(session);
+            this.emit("sessionRemoveEvent", session);
+        });
+
         this.signalRConnection.on("ReceiveMessage", async (message) => {
             this.emit("messageRecieveEvent", message);
         });
@@ -169,7 +174,7 @@ class ResoNetLib extends EventEmitter {
     }
 
     // Fetches user data of inputted userid, this is the equivalent of https://api.resonite.com/users/U-LecloutPanda or https://api.resonite.com/users/lecloutpanda?byusername=true
-    async fetchUser(userid) {
+    async getUser(userid) {
         let url = `${API}users/${userid}` + (userid.startsWith('U-') ? "" : "?byusername=true");
         this.log(`Fetching user data for "${userid}"`);
         const res = await fetch(url);
@@ -184,9 +189,21 @@ class ResoNetLib extends EventEmitter {
     }
 
     // Searches users based on query returning list of users, this is the equivalent of https://api.resonite.com/users?name=panda
-    async fetchUsers(query) {      
+    async getUsers(query) {      
         this.log(`Fetching users with name of "${query}"`);
         const res = await fetch(`${API}/users?name=${query}`);
+
+        if (res.ok) {
+            const json = await res.json();
+            return json;
+        } else {
+            const text = await res.text();
+            return text;
+        }
+    }
+
+    async getUserStatus(userId) {
+        const res = await this.signalRConnection.send("RequestStatus", userId, false);
 
         if (res.ok) {
             const json = await res.json();
