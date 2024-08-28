@@ -2,7 +2,7 @@
   "name": "resonet-lib",
   "version": "1.0.0",
   "description": "NodeJS library that interacts with the Resonite API and SignalR endpoints",
-  "main": "index.js",
+  "main": "./src/client.js",
   "scripts": {},
   "keywords": [
     "Resonite",
