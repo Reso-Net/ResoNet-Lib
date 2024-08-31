@@ -1,4 +1,4 @@
-const {randomUUID} = require("crypto");
+const { randomUUID } = require("crypto");
 const { EventEmitter } = require("events");
 
 class Message extends EventEmitter{

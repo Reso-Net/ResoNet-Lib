@@ -5,6 +5,7 @@ const Message = require('./message');
 const User = require('./user');
 const Utils = require('./utils');
 const Session = require('./session');
+const EventEmitter = require("events");
 
 const API = "https://api.resonite.com/";
 const ASSET_URL = "https://assets.resonite.com/"
@@ -30,8 +31,9 @@ function GenerateUID(){
 }
 
 // Library initialization 
-class ResoNetLib {
+class ResoNetLib extends EventEmitter {
     constructor(config = null) {
+        super();
         if (config == null) {
             this.warning("No config found! Some functions may not work.");
         } else {
@@ -67,11 +69,13 @@ class ResoNetLib {
         await this.login();
         await this.startSignalR();
         await this.setupVariables();
+        this.emit("clientStartedEvent");
     }
     
     async stop() {
         await this.logout();
         await this.stopSignalR();
+        this.emit("clientStoppedEvent");
     }
 
     // Log into Resonite using user Credentials. 
@@ -109,13 +113,14 @@ class ResoNetLib {
             this.data.fullToken = `res ${loginResponse.entity.userId}:${loginResponse.entity.token}`;
             this.data.tokenExpiry = loginResponse.entity.expire;
             this.data.loggedIn = true;
+
+            this.emit("loginSuccessfulEvent");
         }
         else {
             let response = await res.text();
+            this.emit("loginFaileEvent");
             throw new Error(`Unexpected return code ${res.status}: ${response}`);
         }
-
-        //this.utils.log(`Successfully Logged into ${this.data.username}(${this.data.userId})`);
     }
 
     // Logs out signed in user. 
@@ -145,7 +150,7 @@ class ResoNetLib {
         this.utils = undefined;
         this.session = undefined;
     }
-    
+
     // Starts SignalIR after login, Use other functions as required from here on.
     async startSignalR() {
         this.signalRConnection = new signalR.HubConnectionBuilder()
@@ -161,17 +166,14 @@ class ResoNetLib {
         .build();
 
         this.signalRConnection.start();
-
-        //this.log("Starting SignalR");
     }
     
     // Stops SignalIR and unassigns the signalRConnection variable
     async stopSignalR() {
         await this.signalRConnection.stop();
         this.signalRConnection = undefined;
-        //this.log("Stopping SignalR.");
     }
-
+    
     async setupVariables() {
         this.message = new Message(this.signalRConnection, this.data);
         this.user = new User(this.signalRConnection, this.data);
