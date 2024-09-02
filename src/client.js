@@ -102,6 +102,9 @@ class ResoNetLib extends EventEmitter {
             this.data.tokenExpiry = loginResponse.entity.expire;
             this.data.loggedIn = true;
 
+            this.data.sessions = await this.fetchSessions();
+            this.data.contacts = await this.fetchContacts();
+
             this.emit("loginSuccessfulEvent");
         }
         else {
