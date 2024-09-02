@@ -1,10 +1,5 @@
 const {randomUUID, createHash, randomBytes} = require("crypto");
 const signalR = require("@microsoft/signalr");
-
-const Message = require('./message');
-const User = require('./user');
-const Utils = require('./utils');
-const Session = require('./session');
 const EventEmitter = require("events");
 
 const API = "https://api.resonite.com/";
@@ -58,24 +53,17 @@ class ResoNetLib extends EventEmitter {
             }
     
             this.signalRConnection = undefined;
-            this.message = undefined;
-            this.user = undefined;
-            this.utils = undefined;
-            this.session = undefined;
         }
     }
 
     async start() {
         await this.login();
         await this.startSignalR();
-        await this.setupVariables();
-        this.emit("clientStartedEvent");
     }
     
     async stop() {
         await this.logout();
         await this.stopSignalR();
-        this.emit("clientStoppedEvent");
     }
 
     // Log into Resonite using user Credentials. 
@@ -145,10 +133,6 @@ class ResoNetLib extends EventEmitter {
         this.data.sessions = [];
 
         this.signalRConnection = undefined;
-        this.message = undefined;
-        this.user = undefined;
-        this.utils = undefined;
-        this.session = undefined;
     }
 
     // Starts SignalIR after login, Use other functions as required from here on.
@@ -165,6 +149,20 @@ class ResoNetLib extends EventEmitter {
         .configureLogging(signalR.LogLevel.Critical)
         .build();
 
+        this.signalRConnection.on("ReceiveSessionUpdate", async (session) => {
+            this.updateSessionsList(session);
+            this.emit("sessionUpdateEvent", session);
+        });
+
+        this.signalRConnection.on("RemoveSession", async (sessionId) => {
+            this.removeSessionFromList(sessionId);
+            this.emit("sessionRemoveEvent", sessionId);
+        });
+
+        this.signalRConnection.on("ReceiveMessage", async (message) => {
+            this.emit("messageRecieveEvent", message);
+        });
+
         this.signalRConnection.start();
     }
     
@@ -172,6 +170,37 @@ class ResoNetLib extends EventEmitter {
     async stopSignalR() {
         await this.signalRConnection.stop();
         this.signalRConnection = undefined;
+    }
+
+    //#region Message related things
+    // Sends RAW message
+    async sendRawMessage(messageData){
+        await this.signalRConnection.send("SendMessage", messageData).catch(async (error) => {
+            this.error(error);
+        });
+    }
+    
+    // Sends a standard text message to the specified contact using the signed in account. 
+    async sendTextMessage(userid, content) {
+        if (!userid.startsWith('U-')) {
+            this.error("UserId is not a user id.")
+            return;
+        } else if (content.trim() == "") {
+            this.error("Content is null");
+            return;
+        }
+        const messageData = {
+            "id": `MSG-${randomUUID()}`,
+            "senderId": this.data.userId,
+            "recipientId": userid,
+            "messageType": "Text",
+            "sendTime": (new Date(Date.now())).toISOString(),
+            "lastUpdateTime": (new Date(Date.now())).toISOString(),
+            "content": content
+        }
+        await this.signalRConnection.send("SendMessage", messageData).catch(async (error) => {
+            this.error(error);
+        });
     }
     
     async setupVariables() {
@@ -188,6 +217,195 @@ class ResoNetLib extends EventEmitter {
             this.data.sessions = array;
         });
     }
+    //#endregion
+
+    //#region User/Contact related things
+    // Fetches user data of inputted userid, this is the equivalent of https://api.resonite.com/users/U-LecloutPanda or https://api.resonite.com/users/lecloutpanda?byusername=true
+    async fetchUser(userid) {
+        let url = `${this.data.api}users/${userid}` + (userid.startsWith('U-') ? "" : "?byusername=true");
+        this.log(`Fetching user data for "${userid}"`);
+        const res = await fetch(url);
+        if (res.ok) {
+            const json = await res.json();
+            return json;
+        } else {
+            const text = await res.text();
+            return text;
+        }
+    }
+
+    // Searches users based on query returning list of users, this is the equivalent of https://api.resonite.com/users?name=panda
+    async searchUsers(query) {      
+        this.log(`Fetching users with name of "${query}"`);
+        const res = await fetch(`${this.data.api}/users?name=${query}`);
+        if (res.ok) {
+            const json = await res.json();
+            return json;
+        } else {
+            const text = await res.text();
+            return text;
+        }
+    }
+    
+    // Fetches the contact list of the signed in account from the api.
+    async fetchContacts() {
+        const res = await fetch(`${this.data.api}/users/${this.data.userId}/contacts`, {headers: {"Authorization": this.data.fullToken}});
+        let json = await res.json();      
+        return json;
+    }
+
+    async isContact(userid) {
+        if (!userid.startsWith("U-")) {
+            this.error("Failed to get contact, Invalid UserID.");
+        }
+        
+        const contacts = await this.fetchContacts();
+        const contact = contacts.find(contact => contact.id === userid);
+
+        console.log(contact);
+
+        if (contact != null && contact.contactStatus == "Accepted") {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    // Fetches contact information using the U-userID, Must be logged in.
+    async fetchContact(userid) {
+        if (!userid.startsWith("U-")) {
+            this.error("Failed to get contact, Invalid UserID.");
+        }
+        
+        const contacts = await this.fetchContacts();
+        const contact = contacts.find(contact => contact.id === userid);
+        
+        if (contact == null) {
+            this.error("No valid contact found.");
+        }
+        
+        return contact;
+    }
+
+    // Use this function to add a contact using the signed in account. Requires the full User ID with leading U-
+    async addContact(userid) {
+        if (!userid.startsWith("U-")) {
+            this.error("Not a valid user id!");
+        }
+        this.log(`Attempting to add user ${userid} as a contact`);
+        const user = await this.fetchUser(userid);
+        const contactData = {
+            "ownerId": this.data.userId,
+            "id": user.id,
+            "contactUsername": user.username,
+            "contactStatus": "Accepted"
+        };
+        await this.signalRConnection.send("UpdateContact", contactData).then(() => {
+            this.log(`Successfully added user ${userid} as a contact`);
+        }).catch(async (error) => {
+            this.error(error);
+        });
+    }
+
+    // Use this function to remove contact for the signed in account using the userID Must be logged in. 
+    async removeContact(userid) {
+        if (!this.data.loggedIn) {
+            this.error("Not logged in! Can't remove friend.");
+        }
+        if (!userid.startsWith("U-")) {
+            this.error("Not a valid user id!");
+        }
+        this.log(`Attempting to remove user ${userid} as a contact`);
+        await fetch(`${this.data.api}/users/${this.data.userId}/friends/${userid}`,
+        {
+            method: "DELETE",
+            headers: {
+                "Authorization": this.data.fullToken
+            }
+        }).catch(async (error) => {
+            this.error(error);
+        });
+        const contact = this.fetchContact(userid);
+        contact.contactStatus = "Ignored";
+
+        await this.signalRConnection.send("UpdateContact", contact).then(() => {
+            this.log(`Successfully removed user ${userid} as a contact`);
+        }).catch(async (error) => {
+            this.error(error);
+        });
+    }
+
+    // Blocks user for the signed in account
+    async blockuser(user) {
+        // TODO: finish implementing this function
+        this.error("Not implemented yet.")
+    }
+    //#endregion
+
+    //#region Session related things 
+    // Fetch all public facing sessions
+    async fetchSessions() {
+        const res = await fetch(`${this.data.api}/sessions`);
+        let json = await res.json();
+        return json;
+    }
+
+    // Fetch session data for specific session
+    async fetchSession(sessionId) {
+        const res = await fetch(`${this.data.api}/sessions/sessionId`);
+        let json = await res.json();
+        return json;
+    }
+    
+    async updateSessionsList(sessionUpdate) {
+        const sessions = this.data.sessions;
+        const index = sessions.findIndex(session => session.sessionId === sessionUpdate.sessionId);
+      
+        if (index !== -1) {
+            sessions[index] = sessionUpdate;
+        } else {
+            sessions.push(sessionUpdate);
+        }
+    }
+
+    async removeSessionsFromList(sessionId) {
+        const sessions = this.data.sessions;
+        const index = sessions.findIndex(session => session.sessionId === sessionId);
+        
+        if (index !== -1) {
+            sessions.splice(index, 1);
+        } else {
+            console.log(`Session with ID ${sessionId} not found.`);
+        }
+    }
+    //#endregion
+
+    //#region Utils
+    // Formats image urls to be usable 
+    formatIconUrl(url) {
+        try {
+            return url.replace('resdb:///', this.data.ASSET_URL).replace('.webp', '').replace('.png', '');
+        }
+        catch {
+            return 'INVALID_URL';
+        }
+    }
+
+    // Basic logging stuff with time stamps
+    log(message) {
+        console.log(`[${Date.now()} INFO] ${message}`);
+    }
+
+    // Basic warning stuff with time stamps
+    warning(message) {
+        console.warn(`[${Date.now()} WARN] ${message}`);
+    }
+
+    // Basic error stuff with time stamps
+    error(message) {
+        console.error(`[${Date.now()} ERROR] ${message}`);
+    }
+    //#endregion
 }
 
 module.exports = ResoNetLib;
