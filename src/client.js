@@ -179,6 +179,8 @@ class ResoNetLib extends EventEmitter {
         });
 
         await this.signalRConnection.start();
+        // Intialize contact status updates so RecieveStatusUpdates work...
+        this.signalRConnection.stream("InitializeContacts");
     }
     
     // Stops SignalIR and unassigns the signalRConnection variable
