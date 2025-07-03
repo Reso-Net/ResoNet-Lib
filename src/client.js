@@ -419,7 +419,7 @@ class ResoNetLib extends EventEmitter {
     // Formats image urls to be usable 
     formatAssetUrl(url) {
         try {
-            return url.replace('resdb:///', this.data.assetUrl).replace('.webp', '').replace('.png', '').replace('.exr', '');
+            return url.replace('resdb:///', this.data.assetUrl).replace('.webp', '').replace('.png', '');
         }
         catch {
             return;
