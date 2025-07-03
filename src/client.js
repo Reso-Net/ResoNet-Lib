@@ -57,13 +57,21 @@ class ResoNetLib extends EventEmitter {
     }
 
     async start() {
-        await this.login();
-        await this.startSignalR();
+        try {
+            await this.login();
+            await this.startSignalR();
+        } catch(error) {
+            return error;
+        }
     }
     
     async stop() {
-        await this.logout();
-        await this.stopSignalR();
+        try {
+            await this.logout();
+            await this.stopSignalR();
+        } catch(error) {
+            return error;
+        }
     }
 
     // Log into Resonite using user Credentials. 
@@ -164,19 +172,13 @@ class ResoNetLib extends EventEmitter {
 
         this.signalRConnection.on("ReceiveMessage", async (message) => {
             this.emit("messageRecieveEvent", message);
-
-            /*
-            let readMessageData = {
-                "senderId": message.senderId,
-                "readTime": (new Date(Date.now())).toISOString(),
-                "ids": [
-                    message.id
-                ]
-            }
-            await this.signalRConnection.send("MarkMessagesRead", readMessageData);
-            */
         });
-        this.signalRConnection.start();
+
+        this.signalRConnection.on("ReceiveStatusUpdate", async (status) => {
+            this.emit("receiveStatusUpdate", status);
+        });
+
+        await this.signalRConnection.start();
     }
     
     // Stops SignalIR and unassigns the signalRConnection variable
@@ -214,8 +216,6 @@ class ResoNetLib extends EventEmitter {
         await this.signalRConnection.send("SendMessage", messageData).catch(async (error) => {
             this.error(error);
         });
-
-        return messageData;
     }
     
     async setupVariables() {
@@ -286,6 +286,11 @@ class ResoNetLib extends EventEmitter {
         }
     }
 
+    async requestUserStatus(userId, invisible = true) {
+        await this.signalRConnection.send("RequestStatus", userId, invisible);
+        //await Hub.SendAsync("RequestStatus", userId, invisible, Token).ConfigureAwait(continueOnCapturedContext: false);
+	}
+
     // Fetches contact information using the U-userID, Must be logged in.
     async fetchContact(userid) {
         if (!userid.startsWith("U-")) {
@@ -355,26 +360,6 @@ class ResoNetLib extends EventEmitter {
         // TODO: finish implementing this function
         this.error("Not implemented yet.")
     }
-
-    async fetchMessages(userId, maxItems = 100, unreadOnly = false) {
-        const fromTime = new Date(2016, 0, 1).toISOString();
-        const res = await fetch(`${this.data.api}/users/${this.data.userId}/messages?maxItems=${maxItems}&user=${userId}&maxItems=${maxItems}&fromTime=${fromTime}&unread=${unreadOnly}`, 
-        {
-            method: "GET",
-            headers: { 
-                "Authorization": this.data.fullToken 
-            } 
-        }).catch(async (error) => {
-            this.error(error);
-            return null;
-        });
-
-        if (res.ok) {
-            let json = await res.json();      
-            return json;
-        }
-        return null;
-    }
     //#endregion
 
     //#region Session related things 
@@ -416,7 +401,7 @@ class ResoNetLib extends EventEmitter {
     //#endregion
 
     //#region Utils
-    // Formats image urls to be usable 
+    // Formats given resdb url into a usable asset url
     formatAssetUrl(url) {
         try {
             return url.replace('resdb:///', this.data.assetUrl).replace('.webp', '').replace('.png', '');
