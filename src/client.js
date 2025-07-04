@@ -240,8 +240,10 @@ class ResoNetLib extends EventEmitter {
             let json = await res.json();   
             json.forEach(async contactData => {
                 var contact = new Contact(contactData);
-                contact.UpdateContact({ "currentUser": await this.fetchUser(contactData.id)} );
-                this.data.contacts.push(contact);
+                if (contactData.ContactStatus == "Accepted" && contactData.IsAccepted) {
+                    contact.UpdateContact({ "currentUser": await this.fetchUser(contactData.id)} );
+                    this.data.contacts.push(contact);
+                }
             });   
         } catch (error) {
             this.error(error);
