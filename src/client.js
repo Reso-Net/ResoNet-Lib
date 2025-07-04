@@ -163,11 +163,9 @@ class ResoNetLib extends EventEmitter {
                 this.emit("receiveStatusUpdate", status);
             });
 
-            await this.signalRConnection.start();
-            this.signalRConnection.stream("InitializeContacts");
-        } catch(error) {
-            this.error(error);
-        }
+        await this.signalRConnection.start();
+        // Intialize contact status updates so RecieveStatusUpdates work...
+        this.signalRConnection.stream("InitializeContacts");
     }
     
     async stopSignalR() {
