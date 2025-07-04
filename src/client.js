@@ -2,6 +2,8 @@ const {randomUUID, createHash, randomBytes} = require("crypto");
 const signalR = require("@microsoft/signalr");
 const EventEmitter = require("events");
 
+const Contact = require('./classes/Contact');
+
 const API = "https://api.resonite.com/";
 const ASSET_URL = "https://assets.resonite.com/"
 const BADGES_URL = "https://gist.github.com/art0007i/018c94ee9c8701a8c2a0419599d80fbc/raw";
@@ -25,7 +27,6 @@ function GenerateUID(){
     return result;
 }
 
-// Library initialization 
 class ResoNetLib extends EventEmitter {
     constructor(config = null) {
         super();
@@ -48,34 +49,16 @@ class ResoNetLib extends EventEmitter {
                 "fullToken": "",
                 "tokenExpiry": "",
                 "loggedIn": false,
-                "contacts": [],
-                "sessions": []
+                "contacts": []
             }
     
             this.signalRConnection = undefined;
         }
     }
 
-    async start() {
-        try {
-            await this.login();
-            await this.startSignalR();
-        } catch(error) {
-            return error;
-        }
-    }
-    
-    async stop() {
-        try {
-            await this.logout();
-            await this.stopSignalR();
-        } catch(error) {
-            return error;
-        }
-    }
+    async login() {  
+        this.log(`Attempting to log in as ${this.config.username}`);
 
-    // Log into Resonite using user Credentials. 
-    async login() {   
         if (this.data.loggedIn) {
             this.error("Already logged in!");
         }
@@ -101,7 +84,7 @@ class ResoNetLib extends EventEmitter {
             },
             body: JSON.stringify(loginData)
         });
-    
+
         if (res.status === 200){
             const loginResponse = await res.json();
             this.data.userId = loginResponse.entity.userId;
@@ -109,21 +92,19 @@ class ResoNetLib extends EventEmitter {
             this.data.fullToken = `res ${loginResponse.entity.userId}:${loginResponse.entity.token}`;
             this.data.tokenExpiry = loginResponse.entity.expire;
             this.data.loggedIn = true;
-
-            this.data.sessions = await this.fetchSessions();
-            this.data.contacts = await this.fetchContacts();
-
-            this.emit("loginSuccessfulEvent");
+            await this.fetchContacts();
+            
+            this.log(`Successfully logged in as ${this.config.username}!`);
         }
         else {
             let response = await res.text();
-            this.emit("loginFaileEvent");
+            this.error(response);
             throw new Error(`Unexpected return code ${res.status}: ${response}`);
         }
     }
 
-    // Logs out signed in user. 
     async logout() {
+        this.log("Logging out.");
         const res = await fetch(`${API}/userSessions/${this.data.userId}/${this.data.token}`,
         {
             method: "DELETE",
@@ -141,264 +122,141 @@ class ResoNetLib extends EventEmitter {
         this.data.token = "";
         this.data.userId = "";
         this.data.contacts = [];
-        this.data.sessions = [];
 
         this.signalRConnection = undefined;
     }
 
-    // Starts SignalIR after login, Use other functions as required from here on.
     async startSignalR() {
-        this.signalRConnection = new signalR.HubConnectionBuilder()
-        .withUrl(`${API}/hub`, {
-            headers: {
-                "Authorization": this.data.fullToken,
-                "UID": this.data.currentMachineID,
-                "SecretClientAccessKey": KEY
-            }
-        })
-        .withAutomaticReconnect()
-        .configureLogging(signalR.LogLevel.Critical)
-        .build();
+        try {
+            this.log("Starting SignalR");
+            this.signalRConnection = new signalR.HubConnectionBuilder()
+            .withUrl(`${API}/hub`, {
+                headers: {
+                    "Authorization": this.data.fullToken,
+                    "UID": this.data.currentMachineID,
+                    "SecretClientAccessKey": KEY
+                }
+            })
+            .withAutomaticReconnect()
+            .configureLogging(signalR.LogLevel.Critical)
+            .build();
 
-        this.signalRConnection.on("ReceiveSessionUpdate", async (session) => {
-            this.updateSessionsList(session);
-            this.emit("sessionUpdateEvent", session);
-        });
+            this.signalRConnection.on("ReceiveSessionUpdate", async (session) => {
+                this.updateSessionsList(session);
+                this.emit("sessionUpdateEvent", session);
+            });
 
-        this.signalRConnection.on("RemoveSession", async (sessionId) => {
-            this.removeSessionFromList(sessionId);
-            this.emit("sessionRemoveEvent", sessionId);
-        });
+            this.signalRConnection.on("RemoveSession", async (sessionId) => {
+                this.removeSessionFromList(sessionId);
+                this.emit("sessionRemoveEvent", sessionId);
+            });
 
-        this.signalRConnection.on("ReceiveMessage", async (message) => {
-            this.emit("messageRecieveEvent", message);
-        });
+            this.signalRConnection.on("ReceiveMessage", async (message) => {
+                this.log(`Received Message: ${ JSON.stringify(message)}`)
+                this.data.contacts.find(c => c.contactUserId === message.senderId).UpdateContact({ "latestMessageTime": message.sendTime });
+                this.emit("messageRecieveEvent", message);
+            });
 
-        this.signalRConnection.on("ReceiveStatusUpdate", async (status) => {
-            this.emit("receiveStatusUpdate", status);
-        });
+            this.signalRConnection.on("ReceiveStatusUpdate", async (status) => {
+                this.log(`Received Status Update: ${JSON.stringify(status)}`);
+                this.data.contacts.find(c => c.contactUserId === status.userId).UpdateContact({ "currentStatus": status });
+                this.emit("receiveStatusUpdate", status);
+            });
 
-        await this.signalRConnection.start();
+            await this.signalRConnection.start();
+            this.signalRConnection.stream("InitializeContacts");
+        } catch(error) {
+            this.error(error);
+        }
     }
     
-    // Stops SignalIR and unassigns the signalRConnection variable
     async stopSignalR() {
-        await this.signalRConnection.stop();
-        this.signalRConnection = undefined;
-    }
-
-    //#region Message related things
-    // Sends RAW message
-    async sendRawMessage(messageData){
-        await this.signalRConnection.send("SendMessage", messageData).catch(async (error) => {
+        try {
+            this.log("Stopping SignalR.");
+            await this.signalRConnection.stop();
+            this.signalRConnection = undefined;
+        } catch(error) {
             this.error(error);
-        });
+        }
     }
-    
-    // Sends a standard text message to the specified contact using the signed in account. 
-    async sendTextMessage(userid, content) {
-        if (!userid.startsWith('U-')) {
-            this.error("UserId is not a user id.")
-            return;
-        } else if (content.trim() == "") {
-            this.error("Content is null");
-            return;
-        }
-        const messageData = {
-            "id": `MSG-${randomUUID()}`,
-            "senderId": this.data.userId,
-            "recipientId": userid,
-            "messageType": "Text",
-            "sendTime": (new Date(Date.now())).toISOString(),
-            "lastUpdateTime": (new Date(Date.now())).toISOString(),
-            "content": content
-        }
-        await this.signalRConnection.send("SendMessage", messageData).catch(async (error) => {
+
+    async start() {
+        try {
+            await this.login();
+            await this.startSignalR();
+        } catch(error) {
             this.error(error);
-        });
-    }
-    
-    async setupVariables() {
-        this.message = new Message(this.signalRConnection, this.data);
-        this.user = new User(this.signalRConnection, this.data);
-        this.utils = new Utils(this.signalRConnection, this.data);
-        this.session = new Session(this.signalRConnection, this.data);
-
-        this.user.fetchContacts().then(array => {
-            this.data.contacts = array;
-        });
-
-        this.session.fetchSessions().then(array => {
-            this.data.sessions = array;
-        });
-    }
-    //#endregion
-
-    //#region User/Contact related things
-    // Fetches user data of inputted userid, this is the equivalent of https://api.resonite.com/users/U-LecloutPanda or https://api.resonite.com/users/lecloutpanda?byusername=true
-    async fetchUser(userid) {
-        let url = `${this.data.api}users/${userid}` + (userid.startsWith('U-') ? "" : "?byusername=true");
-        this.log(`Fetching user data for "${userid}"`);
-        const res = await fetch(url);
-        if (res.ok) {
-            const json = await res.json();
-            return json;
-        } else {
-            const text = await res.text();
-            return text;
-        }
-    }
-
-    // Searches users based on query returning list of users, this is the equivalent of https://api.resonite.com/users?name=panda
-    async searchUsers(query) {      
-        this.log(`Fetching users with name of "${query}"`);
-        const res = await fetch(`${this.data.api}/users?name=${query}`);
-        if (res.ok) {
-            const json = await res.json();
-            return json;
-        } else {
-            const text = await res.text();
-            return text;
         }
     }
     
+    async stop() {
+        try {
+            await this.logout();
+            await this.stopSignalR();
+        } catch(error) {
+            this.error(error);
+        }
+    }
+
+    async updateStatus(status) {
+        try {
+            const statusUpdateData = {
+                "userId": status.userId,
+                "onlineStatus": status.onlineStatus,
+                "outputDevice": status.outputDevice,
+                "sessionType": status.sessionType,
+                "userSessionId": status.userSessionId,
+                "isPresent": status.isPresent,
+                "lastPresenceTimestamp": status.lastPresenceTimestamp,
+                "lastStatusChange": status.lastStatusChange,
+                "compatibilityHash": status.compatibilityHash,
+                "appVersion": status.appVersion,
+                "isMobile": status.isMobile
+            }
+            
+            const statusUpdateGroup = {
+                "group": status.group,
+                "targetIds": status.targetIds
+            }   
+
+            await this.signalRConnection.send("BroadcastStatus", statusUpdateData, statusUpdateGroup)
+            .then(() => {
+                this.log(`Updating status: ${JSON.stringify(statusUpdateData)}`);
+            })
+            .catch((err) => {
+                throw new Error(err);
+            });
+        } catch (error) {
+            this.error(error);
+        }
+    }
+
     // Fetches the contact list of the signed in account from the api.
     async fetchContacts() {
-        const res = await fetch(`${this.data.api}/users/${this.data.userId}/contacts`, {headers: {"Authorization": this.data.fullToken}});
-        let json = await res.json();      
-        return json;
-    }
-
-    async isContact(userid) {
-        if (!userid.startsWith("U-")) {
-            this.error("Failed to get contact, Invalid UserID.");
-        }
-        
-        const contacts = await this.fetchContacts();
-        const contact = contacts.find(contact => contact.id === userid);
-
-        console.log(contact);
-
-        if (contact != null && contact.contactStatus == "Accepted") {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    async requestUserStatus(userId, invisible = true) {
-        await this.signalRConnection.send("RequestStatus", userId, invisible);
-        //await Hub.SendAsync("RequestStatus", userId, invisible, Token).ConfigureAwait(continueOnCapturedContext: false);
-	}
-
-    // Fetches contact information using the U-userID, Must be logged in.
-    async fetchContact(userid) {
-        if (!userid.startsWith("U-")) {
-            this.error("Failed to get contact, Invalid UserID.");
-        }
-        
-        const contacts = await this.fetchContacts();
-        const contact = contacts.find(contact => contact.id === userid);
-        
-        if (contact == null) {
-            this.error("No valid contact found.");
-        }
-        
-        return contact;
-    }
-
-    // Use this function to add a contact using the signed in account. Requires the full User ID with leading U-
-    async addContact(userid) {
-        if (!userid.startsWith("U-")) {
-            this.error("Not a valid user id!");
-        }
-        this.log(`Attempting to add user ${userid} as a contact`);
-        const user = await this.fetchUser(userid);
-        const contactData = {
-            "ownerId": this.data.userId,
-            "id": user.id,
-            "contactUsername": user.username,
-            "contactStatus": "Accepted"
-        };
-        await this.signalRConnection.send("UpdateContact", contactData).then(() => {
-            this.log(`Successfully added user ${userid} as a contact`);
-        }).catch(async (error) => {
+        try {
+            this.log(`Fetching Contacts.`)
+            const res = await fetch(`${this.data.api}/users/${this.data.userId}/contacts`, {headers: {"Authorization": this.data.fullToken}});
+            let json = await res.json();   
+            json.forEach(async contactData => {
+                var contact = new Contact(contactData);
+                contact.UpdateContact({ "currentUser": await this.fetchUser(contactData.id)} );
+                this.data.contacts.push(contact);
+            });   
+        } catch (error) {
             this.error(error);
-        });
-    }
-
-    // Use this function to remove contact for the signed in account using the userID Must be logged in. 
-    async removeContact(userid) {
-        if (!this.data.loggedIn) {
-            this.error("Not logged in! Can't remove friend.");
-        }
-        if (!userid.startsWith("U-")) {
-            this.error("Not a valid user id!");
-        }
-        this.log(`Attempting to remove user ${userid} as a contact`);
-        await fetch(`${this.data.api}/users/${this.data.userId}/friends/${userid}`,
-        {
-            method: "DELETE",
-            headers: {
-                "Authorization": this.data.fullToken
-            }
-        }).catch(async (error) => {
-            this.error(error);
-        });
-        const contact = this.fetchContact(userid);
-        contact.contactStatus = "Ignored";
-
-        await this.signalRConnection.send("UpdateContact", contact).then(() => {
-            this.log(`Successfully removed user ${userid} as a contact`);
-        }).catch(async (error) => {
-            this.error(error);
-        });
-    }
-
-    // Blocks user for the signed in account
-    async blockuser(user) {
-        // TODO: finish implementing this function
-        this.error("Not implemented yet.")
-    }
-    //#endregion
-
-    //#region Session related things 
-    // Fetch all public facing sessions
-    async fetchSessions() {
-        const res = await fetch(`${this.data.api}/sessions`);
-        let json = await res.json();
-        return json;
-    }
-
-    // Fetch session data for specific session
-    async fetchSession(sessionId) {
-        const res = await fetch(`${this.data.api}/sessions/sessionId`);
-        let json = await res.json();
-        return json;
-    }
-    
-    async updateSessionsList(sessionUpdate) {
-        const sessions = this.data.sessions;
-        const index = sessions.findIndex(session => session.sessionId === sessionUpdate.sessionId);
-      
-        if (index !== -1) {
-            sessions[index] = sessionUpdate;
-        } else {
-            sessions.push(sessionUpdate);
         }
     }
 
-    async removeSessionsFromList(sessionId) {
-        const sessions = this.data.sessions;
-        const index = sessions.findIndex(session => session.sessionId === sessionId);
-        
-        if (index !== -1) {
-            sessions.splice(index, 1);
-        } else {
-            console.log(`Session with ID ${sessionId} not found.`);
-        }
+    fetchContact(userId) {
+        return this.data.contacts.find(contact => contact.contactUserId === userId) || null;
     }
-    //#endregion
+
+    async fetchUser(userId) {
+        this.log(`Fetching User: ${userId}`);
+        const res = await fetch(`${this.data.api}/users/${userId}`, {headers: {"Authorization": this.data.fullToken}});
+        let json = await res.json();  
+        return json; //this.data.contacts.UpdateContact({ "profile": json.profile });
+    }
 
     //#region Utils
     // Formats given resdb url into a usable asset url
