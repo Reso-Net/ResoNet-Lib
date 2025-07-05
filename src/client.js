@@ -49,7 +49,8 @@ class ResoNetLib extends EventEmitter {
                 "fullToken": "",
                 "tokenExpiry": "",
                 "loggedIn": false,
-                "contacts": []
+                "contacts": [],
+                "badges": []
             }
     
             this.signalRConnection = undefined;
@@ -259,6 +260,19 @@ class ResoNetLib extends EventEmitter {
         const res = await fetch(`${this.data.api}/users/${userId}`, {headers: {"Authorization": this.data.fullToken}});
         let json = await res.json();  
         return json; //this.data.contacts.UpdateContact({ "profile": json.profile });
+    }
+
+    async parseBadges() {
+        const res = await fetch("https://gist.githubusercontent.com/art0007i/018c94ee9c8701a8c2a0419599d80fbc/raw");
+        res.text().then(data => {
+            data = data.split("\n");
+            for (let index = 1; index < data.length - 1; index++) {
+                const splitData = data[index].split(",");
+                this.data.badges[splitData[0]] = splitData[1];
+            }
+        }).catch(error => {
+            
+        });
     }
 
     //#region Utils
