@@ -280,9 +280,14 @@ class ResoNetLib extends EventEmitter {
     // Formats given resdb url into a usable asset url
     formatAssetUrl(url) {
         try {
-            return url.replace('resdb:///', this.data.assetUrl).replace('.webp', '').replace('.png', '');
-        }
-        catch {
+            if (url.includes('resdb:///')) {
+                // Replace the prefix and remove extensions
+                return url.replace('resdb:///', this.data.assetUrl).replace('.webp', '').replace('.png', '');
+            } else {
+                // Just prepend assetUrl and remove extensions if any
+                return this.data.assetUrl + url.replace('.webp', '').replace('.png', '');
+            }
+        } catch {
             return;
         }
     }
