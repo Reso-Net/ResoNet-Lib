@@ -2,7 +2,7 @@ const {randomUUID, createHash, randomBytes} = require("crypto");
 const signalR = require("@microsoft/signalr");
 const EventEmitter = require("events");
 
-const Contact = require('./classes/Contact');
+const User = require('./classes/User');
 const Enums = require('./classes/Enums');
 
 const API = "https://api.resonite.com/";
@@ -51,7 +51,7 @@ class ResoNetLib extends EventEmitter {
                 "fullToken": "",
                 "tokenExpiry": "",
                 "loggedIn": false,
-                "contacts": [],
+                "users": [],
                 "sessions": [],
                 "badges": []
             }
@@ -128,142 +128,116 @@ class ResoNetLib extends EventEmitter {
         this.data.fullToken = "";
         this.data.token = "";
         this.data.userId = "";
-        this.data.contacts = [];
+        this.data.users = [];
 
         this.signalRConnection = undefined;
     }
 
     async startSignalR() {
-        try {
-            this.log("Starting SignalR");
-            this.signalRConnection = new signalR.HubConnectionBuilder()
-            .withUrl(`${API}/hub`, {
-                headers: {
-                    "Authorization": this.data.fullToken,
-                    "UID": this.data.currentMachineID,
-                    "SecretClientAccessKey": KEY
-                }
-            })
-            .withAutomaticReconnect()
-            .configureLogging(signalR.LogLevel.Critical)
-            .build();
+        this.log("Starting SignalR");
+        this.signalRConnection = new signalR.HubConnectionBuilder()
+        .withUrl(`${API}/hub`, {
+            headers: {
+                "Authorization": this.data.fullToken,
+                "UID": this.data.currentMachineID,
+                "SecretClientAccessKey": KEY
+            }
+        })
+        .withAutomaticReconnect()
+        .configureLogging(signalR.LogLevel.Critical)
+        .build();
 
-            this.signalRConnection.on("ReceiveSessionUpdate", async (session) => {
-                this.updateSession(session);
-                this.emit("sessionUpdateEvent", session);
-            });
+        this.signalRConnection.on("ReceiveSessionUpdate", async (session) => {
+            this.updateSession(session);
+            this.emit("sessionUpdateEvent", session);
+        });
 
-            this.signalRConnection.on("RemoveSession", async (sessionId) => {
-                this.removeSession(sessionId);
-                this.emit("sessionRemoveEvent", sessionId);
-            });
+        this.signalRConnection.on("RemoveSession", async (sessionId) => {
+            this.removeSession(sessionId);
+            this.emit("sessionRemoveEvent", sessionId);
+        });
 
-            this.signalRConnection.on("ReceiveMessage", async (message) => {
-                this.log(`Received Message: ${ JSON.stringify(message)}`)
-                this.data.contacts.find(c => c.contactUserId === message.senderId).UpdateContact({ "latestMessageTime": message.sendTime });
-                this.emit("messageRecieveEvent", message);
-            });
+        this.signalRConnection.on("ReceiveMessage", async (message) => {
+            this.log(`Received Message: ${ JSON.stringify(message)}`)
+            this.data.users.find(c => c.userId === message.senderId).UpdateContact({ "latestMessageTime": message.sendTime });
+            this.emit("messageRecieveEvent", message);
+        });
 
-            this.signalRConnection.on("ReceiveStatusUpdate", async (status) => {
-                this.log(`Received Status Update: ${JSON.stringify(status)}`);
-                this.data.contacts.find(c => c.contactUserId === status.userId).UpdateContact({ "currentStatus": status });
-                this.data.contacts.find(c => c.contactUserId === status.userId).UpdateContact({ "currentSessions": await this.fetchContactSessions(status.userId) });
-                this.emit("receiveStatusUpdate", status);
-            });
+        this.signalRConnection.on("ReceiveStatusUpdate", async (status) => {
+            this.log(`Received Status Update: ${JSON.stringify(status)}`);
+            this.data.users.find(c => c.userId === status.userId).UpdateContact({ "currentStatus": status });
+            this.data.users.find(c => c.userId === status.userId).UpdateContact({ "currentSessions": await this.fetchUserSessions(status.userId) });
+            this.emit("receiveStatusUpdate", status);
+        });
 
         await this.signalRConnection.start();
-        // Intialize contact status updates so RecieveStatusUpdates work...
         this.signalRConnection.stream("InitializeContacts");
-        } catch (error) {
-            this.error(error);
-        }
     }
     
     async stopSignalR() {
-        try {
-            this.log("Stopping SignalR.");
-            await this.signalRConnection.stop();
-            this.signalRConnection = undefined;
-        } catch(error) {
-            this.error(error);
-        }
+        this.log("Stopping SignalR.");
+        await this.signalRConnection.stop();
+        this.signalRConnection = undefined;
     }
 
     async start() {
-        try {
-            await this.login();
-            await this.startSignalR();
-        } catch(error) {
-            this.error(error);
-            throw new Error(error);
-        }
+        await this.login();
+        await this.startSignalR();
     }
     
     async stop() {
-        try {
-            await this.logout();
-            await this.stopSignalR();
-        } catch(error) {
-            this.error(error);
-        }
+        await this.logout();
+        await this.stopSignalR();
     }
 
     async updateStatus(status) {
-        try {
-            const statusUpdateData = {
-                "userId": status.userId,
-                "onlineStatus": status.onlineStatus,
-                "outputDevice": status.outputDevice,
-                "sessionType": status.sessionType,
-                "userSessionId": status.userSessionId,
-                "isPresent": status.isPresent,
-                "lastPresenceTimestamp": status.lastPresenceTimestamp,
-                "lastStatusChange": status.lastStatusChange,
-                "compatibilityHash": status.compatibilityHash,
-                "appVersion": status.appVersion,
-                "isMobile": status.isMobile
-            }
-            
-            const statusUpdateGroup = {
-                "group": status.group,
-                "targetIds": status.targetIds
-            }   
-
-            await this.signalRConnection.send("BroadcastStatus", statusUpdateData, statusUpdateGroup)
-            .then(() => {
-                this.log(`Updating status: ${JSON.stringify(statusUpdateData)}`);
-            })
-            .catch((err) => {
-                throw new Error(err);
-            });
-        } catch (error) {
-            this.error(error);
+        const statusUpdateData = {
+            "userId": status.userId,
+            "onlineStatus": status.onlineStatus,
+            "outputDevice": status.outputDevice,
+            "sessionType": status.sessionType,
+            "userSessionId": status.userSessionId,
+            "isPresent": status.isPresent,
+            "lastPresenceTimestamp": status.lastPresenceTimestamp,
+            "lastStatusChange": status.lastStatusChange,
+            "compatibilityHash": status.compatibilityHash,
+            "appVersion": status.appVersion,
+            "isMobile": status.isMobile
         }
+        
+        const statusUpdateGroup = {
+            "group": status.group,
+            "targetIds": status.targetIds
+        }   
+
+        await this.signalRConnection.send("BroadcastStatus", statusUpdateData, statusUpdateGroup)
+        .then(() => {
+            this.log(`Updating status: ${JSON.stringify(statusUpdateData)}`);
+        })
+        .catch((err) => {
+            throw new Error(err);
+        });
     }
 
     //#region Contacts
     async fetchContacts() {
-        try {
-            this.log(`Fetching Contacts.`)
-            const res = await fetch(`${this.data.api}/users/${this.data.userId}/contacts`, {headers: {"Authorization": this.data.fullToken}});
-            let json = await res.json();   
-            json.forEach(async contactData => {
-                var contact = new Contact(contactData);
-                if (contactData.contactStatus == "Accepted" && contactData.isAccepted) {
-                    contact.UpdateContact({ "currentUser": await this.fetchUser(contactData.id)} );
-                    this.data.contacts.push(contact);
-                }
-            });   
-        } catch (error) {
-            this.error(error);
-        }
+        this.log(`Fetching Contacts.`)
+        const res = await fetch(`${this.data.api}/users/${this.data.userId}/contacts`, {headers: {"Authorization": this.data.fullToken}});
+        let json = await res.json();   
+        json.forEach(async contactData => {
+            var user = new User({ userId: contactData.id, username: contactData.contactUsername, currentContact: contactData });
+            if (user.currentContact.contactStatus == "Accepted" && user.currentContact.isAccepted) {
+                user.UpdateContact({ "currentUser": await this.fetchUserProfile(contactData.id)} );
+                this.data.users.push(user);
+            }
+        });   
     }
 
-    fetchContact(userId) {
-        return this.data.contacts.find(contact => contact.contactUserId === userId) || null;
+    fetchUser(userId) {
+        return this.data.users.find(user => user.userId === userId) || null;
     }
 
-    async fetchUser(userId) {
+    async fetchUserProfile(userId) {
         this.log(`Fetching User: ${userId}`);
         const res = await fetch(`${this.data.api}/users/${userId}`, {headers: {"Authorization": this.data.fullToken}});
         let json = await res.json();  
@@ -288,18 +262,29 @@ class ResoNetLib extends EventEmitter {
         });
     }
 
+    //#region User Searching
+    async searchUsers(query) {      
+        this.log(`Searching users with term "${query}"`);
+        const res = await fetch(`${this.data.api}/users?name=${query}`);
+        if (res.ok) {
+            const json = await res.json();
+            return json;
+        } else {
+            const text = await res.text();
+            return text;
+        }
+    }
+
+    //#endregion
+
     //#region Session Stuff
     async fetchSessions() {
-        try {
-            this.log(`Fetching Sessions.`)
-            const res = await fetch(`${this.data.api}/sessions`, {headers: {"Authorization": this.data.fullToken}});
-            let json = await res.json();   
-            json.forEach(async sessionData => {
-                this.data.sessions.push(sessionData);
-            });   
-        } catch (error) {
-            this.error(error);
-        }
+        this.log(`Fetching Sessions.`)
+        const res = await fetch(`${this.data.api}/sessions`, {headers: {"Authorization": this.data.fullToken}});
+        let json = await res.json();   
+        json.forEach(async sessionData => {
+            this.data.sessions.push(sessionData);
+        });   
     }
 
     fetchSession(sessionId) {
@@ -307,84 +292,66 @@ class ResoNetLib extends EventEmitter {
     }
 
     removeSession(sessionId) {
-        try {
-            const index = this.data.sessions.findIndex(session => session.sessionId === sessionId);
-            if (index !== -1) {
-                this.data.sessions.splice(index, 1); 
-            }
-        } catch (error) {
-            this.error(error);
+        const index = this.data.sessions.findIndex(session => session.sessionId === sessionId);
+        if (index !== -1) {
+            this.data.sessions.splice(index, 1); 
         }
     }
 
     updateSession(sessionData) {
-        try {
-            const index = this.data.sessions.findIndex(
-                session => session.sessionId === sessionData.sessionId
-            );
+        const index = this.data.sessions.findIndex(
+            session => session.sessionId === sessionData.sessionId
+        );
 
-            if (index === -1) {
-                this.data.sessions.push(sessionData);
-            } else {
-                this.data.sessions[index] = sessionData;
-            }
-        } catch (error) {
-            this.error(error);
+        if (index === -1) {
+            this.data.sessions.push(sessionData);
+        } else {
+            this.data.sessions[index] = sessionData;
         }
     }
 
-    async fetchContactSessions(userId) {
-        try {
-            var sessions = [];
+    async fetchUserSessions(userId) {
+        var sessions = [];
 
-            var contact = this.fetchContact(userId);
-            var status = contact.currentStatus;
-            if (status == null) throw `Status for ${userId} is null, returning.`;
-            var userSessions = status.sessions;
-            var hashSalt = status.hashSalt;
-        
-            for (let index = 0; index < this.data.sessions.length; index++) {
-                const sessionId = this.data.sessions[index].sessionId;
-                const sessionHash = await this.idHash(sessionId + hashSalt);
+        var contact = this.fetchUser(userId);
+        var status = contact.currentStatus;
+        if (status == null) throw `Status for ${userId} is null, returning.`;
+        var userSessions = status.sessions;
+        var hashSalt = status.hashSalt;
+    
+        for (let index = 0; index < this.data.sessions.length; index++) {
+            const sessionId = this.data.sessions[index].sessionId;
+            const sessionHash = await this.idHash(sessionId + hashSalt);
 
-                userSessions.forEach(userSession => {
-                    if (sessionHash == userSession.sessionHash) {
-                        sessions.push(sessionId);
-                    }
-                });
-            } 
+            userSessions.forEach(userSession => {
+                if (sessionHash == userSession.sessionHash) {
+                    sessions.push(sessionId);
+                }
+            });
+        }  
 
-            return sessions;
-        } catch (error) {
-            this.error(error);
-            return null;
-        }      
+        return sessions;
     }
 
-    async fetchContactSession(userId) {
-        try {
-            var contact = this.fetchContact(userId);
-            var status = contact.currentStatus;
-            if (status == null) return { "accessLevel": "Unknown" };
-            var hashSalt = status.hashSalt;
-            var currentSession = status.sessions[status.currentSessionIndex];
+    async fetchUserSession(userId) {
+        var user = this.fetchUser(userId);
+        var status = user.currentStatus;
+        if (status == null) return { accessLevel: "Unknown" };
+        var hashSalt = status.hashSalt;
+        var currentSession = status.sessions[status.currentSessionIndex];
 
-            for (let index = 0; index < this.data.sessions.length; index++) {
-                const session = this.data.sessions[index];
-                const sessionId = session.sessionId;
-                const sessionHash = await this.idHash(sessionId + hashSalt);
-                if (sessionHash == null) return { "accessLevel": "Unknown" };
+        for (let index = 0; index < this.data.sessions.length; index++) {
+            const session = this.data.sessions[index];
+            const sessionId = session.sessionId;
+            const sessionHash = await this.idHash(sessionId + hashSalt);
+            
+            if (sessionHash == null) return { accessLevel: "Unknown" };
+            if (sessionHash == currentSession?.sessionHash ?? "") {
+                return session;
+            }
+        } 
 
-                if (sessionHash == currentSession.sessionHash ?? "") {
-                    return session;
-                }
-            } 
-
-            return { "accessLevel": currentSession.accessLevel };
-        } catch (error) {
-            this.error(error);
-            return { "accessLevel": "Unknown" };
-        }  
+        return currentSession;
     }
     //#endregion
     
@@ -400,14 +367,13 @@ class ResoNetLib extends EventEmitter {
                 return this.data.assetUrl + url.replace('.webp', '').replace('.png', '');
             }
         } catch {
-            return;
+            return null;
         }
     }
 
     // Basic logging stuff with time stamps
     log(message) {
-        if (this.config.logging == true) 
-            console.log(`[${Date.now()} INFO] ${message}`);
+        //console.log(`[${Date.now()} INFO] ${message}`);
     }
 
     // Basic warning stuff with time stamps

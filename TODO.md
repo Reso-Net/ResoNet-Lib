@@ -1,0 +1,2 @@
+- [] Search users
+- [] Cached searched users incase a user comes up again we don't need to refetch them from the api
