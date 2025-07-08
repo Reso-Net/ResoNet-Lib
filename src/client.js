@@ -164,6 +164,7 @@ class ResoNetLib extends EventEmitter {
             this.signalRConnection.on("ReceiveStatusUpdate", async (status) => {
                 this.log(`Received Status Update: ${JSON.stringify(status)}`);
                 this.data.contacts.find(c => c.contactUserId === status.userId).UpdateContact({ "currentStatus": status });
+                this.data.contacts.find(c => c.contactUserId === status.userId).UpdateContact({ "currentSessions": await this.fetchContactSessions(status.userId) });
                 this.emit("receiveStatusUpdate", status);
             });
 
@@ -327,6 +328,59 @@ class ResoNetLib extends EventEmitter {
             this.error(error);
         }
     }
+
+    async fetchContactSessions(userId) {
+        try {
+            var sessions = [];
+
+            var contact = this.fetchContact(userId);
+            var status = contact.currentStatus;
+            if (status == null) throw `Status for ${userId} is null, returning.`;
+            var userSessions = status.sessions;
+            var hashSalt = status.hashSalt;
+        
+            for (let index = 0; index < this.data.sessions.length; index++) {
+                const session = this.data.sessions[index];
+                const sessionHash = await this.idHash(session.sessionId + hashSalt);
+
+                userSessions.forEach(userSession => {
+                    if (sessionHash == userSession.sessionHash) {
+                        sessions.push(session);
+                    }
+                });
+            } 
+
+            return sessions;
+        } catch (error) {
+            this.error(error);
+            return null;
+        }      
+    }
+
+    async fetchContactSession(userId) {
+        try {
+            var contact = this.fetchContact(userId);
+            var status = contact.currentStatus;
+            if (status == null) return null;
+            var hashSalt = status.hashSalt;
+            var currentSession = status.sessions[status.currentSessionIndex];
+
+            for (let index = 0; index < this.data.sessions.length; index++) {
+                const session = this.data.sessions[index];
+                const sessionId = session.sessionId;
+                const sessionHash = await this.idHash(sessionId + hashSalt);
+
+                if (sessionHash == currentSession.sessionHash) {
+                    return session;
+                }
+            } 
+
+            return { "accessLevel": currentSession.accessLevel };
+        } catch (error) {
+            this.error(error);
+            return { "accessLevel": "Unknown" };
+        }  
+    }
     //#endregion
     
     //#region Utils
@@ -353,14 +407,26 @@ class ResoNetLib extends EventEmitter {
 
     // Basic warning stuff with time stamps
     warning(message) {
-        if (this.config.logging == true) 
-            console.warn(`[${Date.now()} WARN] ${message}`);
+        console.warn(`[${Date.now()} WARN] ${message}`);
     }
 
     // Basic error stuff with time stamps
     error(message) {
-        if (this.config.logging == true) 
-            console.error(`[${Date.now()} ERROR] ${message}`);
+        console.error(`[${Date.now()} ERROR] ${message}`);
+    }
+
+    
+    stripTags(str) {
+        return str.replace(/<[^>]*>/g, '');
+    }
+
+    async idHash(id) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(id);
+        const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+        return hashHex.replace(/-/g, "").toUpperCase();
     }
     //#endregion
 }

@@ -9,6 +9,7 @@ class Contact {
     this.latestMessageTime = data.latestMessageTime ? new Date(data.latestMessageTime) : null;
     this.currentUser = data.currentUser || null;
     this.currentStatus = data.currentStatus || null;
+    this.currentSessions = data.currentSessions || null;
   }
 
   UpdateContact(updates = {}) {
@@ -21,6 +22,7 @@ class Contact {
     if ('latestMessageTime' in updates) this.latestMessageTime = updates.latestMessageTime ? new Date(updates.latestMessageTime) : null; 
     if ('currentUser' in updates) this.currentUser = updates.currentUser;
     if ('currentStatus' in updates) this.currentStatus = updates.currentStatus;
+    if ('currentSessions' in updates) this.currentSessions = updates.currentSessions;
   }
 }
 
