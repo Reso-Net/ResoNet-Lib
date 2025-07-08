@@ -236,7 +236,7 @@ class ResoNetLib extends EventEmitter {
         }
     }
 
-    // Fetches the contact list of the signed in account from the api.
+    //#region Contacts
     async fetchContacts() {
         try {
             this.log(`Fetching Contacts.`)
@@ -262,9 +262,14 @@ class ResoNetLib extends EventEmitter {
         this.log(`Fetching User: ${userId}`);
         const res = await fetch(`${this.data.api}/users/${userId}`, {headers: {"Authorization": this.data.fullToken}});
         let json = await res.json();  
-        return json; //this.data.contacts.UpdateContact({ "profile": json.profile });
+        return json; 
     }
 
+    async requestUserUpdate(userId) {
+        await this.signalRConnection.send("RequestStatus", userId, true);
+    }
+    //#endregion
+    
     async parseBadges() {
         const res = await fetch(BADGES_URL);
         res.text().then(data => {
@@ -278,7 +283,7 @@ class ResoNetLib extends EventEmitter {
         });
     }
 
-    //#region
+    //#region Session Stuff
     async fetchSessions() {
         try {
             this.log(`Fetching Sessions.`)
@@ -292,9 +297,9 @@ class ResoNetLib extends EventEmitter {
         }
     }
 
-    //fetchSession(sessionId) {
-    //    return this.data.sessions.find(session => session.sessionId === sessionId) || null;
-    //}
+    fetchSession(sessionId) {
+        return this.data.sessions.find(session => session.sessionId === sessionId) || null;
+    }
 
     removeSession(sessionId) {
         try {
@@ -316,7 +321,6 @@ class ResoNetLib extends EventEmitter {
             if (index === -1) {
                 this.data.sessions.push(sessionData);
             } else {
-                // Update the existing session
                 this.data.sessions[index] = sessionData;
             }
         } catch (error) {
