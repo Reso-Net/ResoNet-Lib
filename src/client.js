@@ -266,7 +266,7 @@ class ResoNetLib extends EventEmitter {
     }
 
     async parseBadges() {
-        const res = await fetch(this.BADGES_URL);
+        const res = await fetch(BADGES_URL);
         res.text().then(data => {
             data = data.split("\n");
             for (let index = 1; index < data.length - 1; index++) {
