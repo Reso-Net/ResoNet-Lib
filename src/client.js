@@ -33,6 +33,7 @@ class ResoNetLib extends EventEmitter {
         super();
         if (config == null) {
             this.warning("No config found! Some functions may not work.");
+
         } else {
             this.config = {
                 "username": config.username,
@@ -64,6 +65,7 @@ class ResoNetLib extends EventEmitter {
 
         if (this.data.loggedIn) {
             this.error("Already logged in!");
+            throw new Error(`Already logged in!`);
         }
 
         const loginData = {
@@ -193,6 +195,7 @@ class ResoNetLib extends EventEmitter {
             await this.startSignalR();
         } catch(error) {
             this.error(error);
+            throw new Error(error);
         }
     }
     
