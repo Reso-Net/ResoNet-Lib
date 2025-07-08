@@ -340,12 +340,12 @@ class ResoNetLib extends EventEmitter {
             var hashSalt = status.hashSalt;
         
             for (let index = 0; index < this.data.sessions.length; index++) {
-                const session = this.data.sessions[index];
-                const sessionHash = await this.idHash(session.sessionId + hashSalt);
+                const sessionId = this.data.sessions[index].sessionId;
+                const sessionHash = await this.idHash(sessionId + hashSalt);
 
                 userSessions.forEach(userSession => {
                     if (sessionHash == userSession.sessionHash) {
-                        sessions.push(session);
+                        sessions.push(sessionId);
                     }
                 });
             } 
@@ -361,7 +361,7 @@ class ResoNetLib extends EventEmitter {
         try {
             var contact = this.fetchContact(userId);
             var status = contact.currentStatus;
-            if (status == null) return null;
+            if (status == null) return { "accessLevel": "Unknown" };
             var hashSalt = status.hashSalt;
             var currentSession = status.sessions[status.currentSessionIndex];
 
@@ -369,6 +369,7 @@ class ResoNetLib extends EventEmitter {
                 const session = this.data.sessions[index];
                 const sessionId = session.sessionId;
                 const sessionHash = await this.idHash(sessionId + hashSalt);
+                if (sessionHash == null) return { "accessLevel": "Unknown" };
 
                 if (sessionHash == currentSession.sessionHash) {
                     return session;
