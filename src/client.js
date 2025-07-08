@@ -50,6 +50,7 @@ class ResoNetLib extends EventEmitter {
                 "tokenExpiry": "",
                 "loggedIn": false,
                 "contacts": [],
+                "sessions": [],
                 "badges": []
             }
     
@@ -94,6 +95,7 @@ class ResoNetLib extends EventEmitter {
             this.data.tokenExpiry = loginResponse.entity.expire;
             this.data.loggedIn = true;
             await this.fetchContacts();
+            await this.fetchSessions();
             await this.parseBadges();
             
             this.log(`Successfully logged in as ${this.config.username}!`);
@@ -144,12 +146,12 @@ class ResoNetLib extends EventEmitter {
             .build();
 
             this.signalRConnection.on("ReceiveSessionUpdate", async (session) => {
-                this.updateSessionsList(session);
+                this.updateSession(session);
                 this.emit("sessionUpdateEvent", session);
             });
 
             this.signalRConnection.on("RemoveSession", async (sessionId) => {
-                this.removeSessionFromList(sessionId);
+                this.removeSession(sessionId);
                 this.emit("sessionRemoveEvent", sessionId);
             });
 
@@ -264,7 +266,7 @@ class ResoNetLib extends EventEmitter {
     }
 
     async parseBadges() {
-        const res = await fetch("https://gist.githubusercontent.com/art0007i/018c94ee9c8701a8c2a0419599d80fbc/raw");
+        const res = await fetch(this.BADGES_URL);
         res.text().then(data => {
             data = data.split("\n");
             for (let index = 1; index < data.length - 1; index++) {
@@ -276,6 +278,53 @@ class ResoNetLib extends EventEmitter {
         });
     }
 
+    //#region
+    async fetchSessions() {
+        try {
+            this.log(`Fetching Sessions.`)
+            const res = await fetch(`${this.data.api}/sessions`, {headers: {"Authorization": this.data.fullToken}});
+            let json = await res.json();   
+            json.forEach(async sessionData => {
+                this.data.sessions.push(sessionData);
+            });   
+        } catch (error) {
+            this.error(error);
+        }
+    }
+
+    //fetchSession(sessionId) {
+    //    return this.data.sessions.find(session => session.sessionId === sessionId) || null;
+    //}
+
+    removeSession(sessionId) {
+        try {
+            const index = this.data.sessions.findIndex(session => session.sessionId === sessionId);
+            if (index !== -1) {
+                this.data.sessions.splice(index, 1); 
+            }
+        } catch (error) {
+            this.error(error);
+        }
+    }
+
+    updateSession(sessionData) {
+        try {
+            const index = this.data.sessions.findIndex(
+                session => session.sessionId === sessionData.sessionId
+            );
+
+            if (index === -1) {
+                this.data.sessions.push(sessionData);
+            } else {
+                // Update the existing session
+                this.data.sessions[index] = sessionData;
+            }
+        } catch (error) {
+            this.error(error);
+        }
+    }
+    //#endregion
+    
     //#region Utils
     // Formats given resdb url into a usable asset url
     formatAssetUrl(url) {
@@ -294,17 +343,20 @@ class ResoNetLib extends EventEmitter {
 
     // Basic logging stuff with time stamps
     log(message) {
-        console.log(`[${Date.now()} INFO] ${message}`);
+        if (this.config.logging == true) 
+            console.log(`[${Date.now()} INFO] ${message}`);
     }
 
     // Basic warning stuff with time stamps
     warning(message) {
-        console.warn(`[${Date.now()} WARN] ${message}`);
+        if (this.config.logging == true) 
+            console.warn(`[${Date.now()} WARN] ${message}`);
     }
 
     // Basic error stuff with time stamps
     error(message) {
-        console.error(`[${Date.now()} ERROR] ${message}`);
+        if (this.config.logging == true) 
+            console.error(`[${Date.now()} ERROR] ${message}`);
     }
     //#endregion
 }
