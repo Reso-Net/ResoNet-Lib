@@ -3,6 +3,7 @@ const signalR = require("@microsoft/signalr");
 const EventEmitter = require("events");
 
 const Contact = require('./classes/Contact');
+const Enums = require('./classes/Enums');
 
 const API = "https://api.resonite.com/";
 const ASSET_URL = "https://assets.resonite.com/"
@@ -371,7 +372,7 @@ class ResoNetLib extends EventEmitter {
                 const sessionHash = await this.idHash(sessionId + hashSalt);
                 if (sessionHash == null) return { "accessLevel": "Unknown" };
 
-                if (sessionHash == currentSession.sessionHash) {
+                if (sessionHash == currentSession.sessionHash ?? "") {
                     return session;
                 }
             } 
