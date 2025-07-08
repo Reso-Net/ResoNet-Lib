@@ -164,7 +164,7 @@ class ResoNetLib extends EventEmitter {
         });
 
         this.signalRConnection.on("ReceiveStatusUpdate", async (status) => {
-            this.log(`Received Status Update: ${JSON.stringify(status)}`);
+            //this.log(`Received Status Update: ${JSON.stringify(status)}`);
             this.data.users.find(c => c.userId === status.userId).UpdateContact({ "currentStatus": status });
             this.data.users.find(c => c.userId === status.userId).UpdateContact({ "currentSessions": await this.fetchUserSessions(status.userId) });
             this.emit("receiveStatusUpdate", status);
@@ -224,17 +224,11 @@ class ResoNetLib extends EventEmitter {
         this.log(`Fetching Contacts.`)
         const res = await fetch(`${this.data.api}/users/${this.data.userId}/contacts`, {headers: {"Authorization": this.data.fullToken}});
         let json = await res.json();   
-        json.forEach(async contactData => {
-            var user = new User({ userId: contactData.id, username: contactData.contactUsername, currentContact: contactData });
-            if (user.currentContact.contactStatus == "Accepted" && user.currentContact.isAccepted) {
-                user.UpdateContact({ "currentUser": await this.fetchUserProfile(contactData.id)} );
-                this.data.users.push(user);
-            }
-        });   
+        await Promise.all(json.filter(user => user.contactStatus == "Accepted" && user.isAccepted).map(user => this.GetUser(user))); 
     }
 
     fetchUser(userId) {
-        return this.data.users.find(user => user.userId === userId) || null;
+        return this.data.users.find(user => user.userId === userId) ?? null;
     }
 
     async fetchUserProfile(userId) {
@@ -257,8 +251,6 @@ class ResoNetLib extends EventEmitter {
                 const splitData = data[index].split(",");
                 this.data.badges[splitData[0]] = splitData[1];
             }
-        }).catch(error => {
-            
         });
     }
 
@@ -266,12 +258,17 @@ class ResoNetLib extends EventEmitter {
     async searchUsers(query) {      
         this.log(`Searching users with term "${query}"`);
         const res = await fetch(`${this.data.api}/users?name=${query}`);
-        if (res.ok) {
-            const json = await res.json();
-            return json;
-        } else {
-            const text = await res.text();
-            return text;
+        let json = await res.json();
+        await Promise.all(json.map(user => this.GetUser(user)));
+    }
+
+    async GetUser(user) {
+        let contactData;
+        var newUser = new User({ userId: user.id, username: user.contactUsername ?? user.username });
+        if (user.contactUsername != null) newUser.currentContact = user;
+        if (this.fetchUser(newUser.userId) == null) {
+            newUser.UpdateContact({ "currentUser": await this.fetchUserProfile(newUser.userId)} );
+            this.data.users.push(newUser);
         }
     }
 
@@ -373,7 +370,7 @@ class ResoNetLib extends EventEmitter {
 
     // Basic logging stuff with time stamps
     log(message) {
-        //console.log(`[${Date.now()} INFO] ${message}`);
+        console.log(`[${Date.now()} INFO] ${message}`);
     }
 
     // Basic warning stuff with time stamps
