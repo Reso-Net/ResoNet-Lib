@@ -6,6 +6,7 @@ class User {
     this.currentStatus = data.currentStatus || null;
     this.currentSessions = data.currentSessions || null;
     this.currentContact = data.currentContact || null;
+    this.messages = data.messages || null;
   }
 
   UpdateContact(updates = {}) {
@@ -15,6 +16,7 @@ class User {
     if ('currentStatus' in updates) this.currentStatus = updates.currentStatus;
     if ('currentSessions' in updates) this.currentSessions = updates.currentSessions;
     if ('currentContact' in updates) this.currentContact = updates.currentContact;
+    if ('messages' in updates) this.messages = updates.messages;
   }
 }
 

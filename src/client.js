@@ -158,15 +158,17 @@ class ResoNetLib extends EventEmitter {
         });
 
         this.signalRConnection.on("ReceiveMessage", async (message) => {
-            this.log(`Received Message: ${ JSON.stringify(message)}`)
-            this.data.users.find(c => c.userId === message.senderId).UpdateContact({ "latestMessageTime": message.sendTime });
+            this.log(`Received Message: ${ JSON.stringify(message)}`);
+            if (this.fetchUser(message.senderId).messages == null) await this.fetchMessages(message.senderId);
+            else this.updateUserMessages(message);
+            //this.data.users.find(u => u.userId === message.senderId).UpdateContact({ "messages": this.fetchUser(message.recipientId).messages.push(message) });
             this.emit("messageRecieveEvent", message);
         });
 
         this.signalRConnection.on("ReceiveStatusUpdate", async (status) => {
             //this.log(`Received Status Update: ${JSON.stringify(status)}`);
-            this.data.users.find(c => c.userId === status.userId).UpdateContact({ "currentStatus": status });
-            this.data.users.find(c => c.userId === status.userId).UpdateContact({ "currentSessions": await this.fetchUserSessions(status.userId) });
+            this.data.users.find(u => u.userId === status.userId).UpdateContact({ "currentStatus": status });
+            this.data.users.find(u => u.userId === status.userId).UpdateContact({ "currentSessions": await this.fetchUserSessions(status.userId) });
             this.emit("receiveStatusUpdate", status);
         });
 
@@ -263,7 +265,6 @@ class ResoNetLib extends EventEmitter {
     }
 
     async GetUser(user) {
-        let contactData;
         var newUser = new User({ userId: user.id, username: user.contactUsername ?? user.username });
         if (user.contactUsername != null) newUser.currentContact = user;
         if (this.fetchUser(newUser.userId) == null) {
@@ -272,6 +273,47 @@ class ResoNetLib extends EventEmitter {
         }
     }
 
+    //#endregion
+
+    //#region Messaging
+    async sendMessage(userId, content) {
+        this.log(`Sending "${content}" to ${userId}.`);
+        const messageData = {
+            "id": `MSG-${ randomUUID() }`,
+            "senderId": this.data.userId,
+            "recipientId": userId,
+            "messageType": "Text",
+            "sendTime": (new Date(Date.now())).toISOString(),
+            "lastUpdateTime": (new Date(Date.now())).toISOString(),
+            "content": content
+        }
+        await this.signalRConnection.send("SendMessage", messageData);
+        this.updateUserMessages(messageData, true);
+        return messageData;
+    }
+
+    async fetchMessages(userId, maxItems = -1, unreadOnly = false) {
+        this.log(`Fetching messages for ${userId}.`);
+        const res = await fetch(`${this.data.api}/users/${this.data.userId}/messages?user=${userId}`, { method: "GET", headers: { "Authorization": this.data.fullToken }}); // ?maxItems=${maxItems}&maxItems=${maxItems}&fromTime=${fromTime}&unread=${unreadOnly}
+        let json = await res.json();      
+        if (json == null) return;
+        this.fetchUser(userId).UpdateContact({ messages: json.reverse() });
+    }
+
+    async markMessagesAsRead(readMessageData) {
+        await this.signalRConnection.send("MarkMessagesRead", readMessageData);
+    }
+
+    updateUserMessages(message, sender = false) {
+        let thing = sender ? message.recipientId : message.senderId;        
+        let user = this.fetchUser(thing);
+        let containsMessage = user.messages.find(m => m.id === message.id)
+        if (!containsMessage) { 
+            this.log(`Updating messages for ${thing}`);
+            user.messages.push(message);
+            this.data.users.find(u => u.userId === message.senderId).UpdateContact({ messages: user.messages });
+        }
+    }
     //#endregion
 
     //#region Session Stuff
