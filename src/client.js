@@ -243,6 +243,27 @@ class ResoNetLib extends EventEmitter {
     async requestUserUpdate(userId) {
         await this.signalRConnection.send("RequestStatus", userId, true);
     }
+
+    async addContact(userId){
+        if (userId.trim().toLowerCase() == "") return;
+        this.log(`Adding Contact: ${userId}`);
+        const profile = await this.fetchUserProfile(userId);
+        await this.updateContact({ "ownerId": this.data.userId, "id": userId, "contactUsername": profile.username, "contactStatus": "Accepted" })
+        await this.fetchContacts();
+    }
+
+    async removeContact(userId){
+        if (userId.trim().toLowerCase() == "") return;
+        this.log(`Removing Contact: ${userId}`);
+        let user = this.fetchUser(userId);
+        user.currentContact.contactStatus = "Ignored";
+        await this.updateContact(user.currentContact);       
+        await this.fetchContacts();
+    }
+
+    async updateContact(data) {
+        await this.signalRConnection.send("UpdateContact", data)
+    }
     //#endregion
     
     async parseBadges() {
