@@ -1,9 +1,9 @@
-const {randomUUID, createHash, randomBytes} = require("crypto");
-const signalR = require("@microsoft/signalr");
-const EventEmitter = require("events");
+import { randomUUID, createHash, randomBytes } from "crypto";
+import * as signalR from "@microsoft/signalr";
+import EventEmitter from "events";
 
-const User = require('./classes/User');
-const Enums = require('./classes/Enums');
+import { User } from './classes/User.js';
+import * as Enums from './classes/Enums.js';
 
 const API = "https://api.resonite.com/";
 const ASSET_URL = "https://assets.resonite.com/"
@@ -441,4 +441,4 @@ class ResoNetLib extends EventEmitter {
     //#endregion
 }
 
-module.exports = ResoNetLib;
+export default ResoNetLib;

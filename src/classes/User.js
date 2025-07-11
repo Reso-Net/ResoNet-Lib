@@ -1,4 +1,4 @@
-class User {
+export class User {
   constructor(data = {}) {
     this.userId = data.userId || null;
     this.username = data.username || null;
@@ -19,5 +19,3 @@ class User {
     if ('messages' in updates) this.messages = updates.messages;
   }
 }
-
-module.exports = User;
