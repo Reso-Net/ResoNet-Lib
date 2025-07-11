@@ -4,7 +4,7 @@ import EventEmitter from "events";
 import { User } from './classes/User.js';
 import * as Enums from './classes/Enums.js';
 
-const API = "https://api.resonite.com/";
+const API = import.meta.env.DEV ? "/api" : "https://api.resonite.com/";
 const ASSET_URL = "https://assets.resonite.com/"
 const BADGES_URL = "https://gist.github.com/art0007i/018c94ee9c8701a8c2a0419599d80fbc/raw";
 const KEY = "oi+ISZuYtMYtpruYHLQLPkXgPaD+IcaRNXPI7b3Z0iYe5+AcccouLYFI9vloMmYEYDlE1PhDL52GsddfxgQeK4Z_hem84t1OXGUdScFkLSMhJA2te86LBL_rFL4JjO4F_hHHIJH1Gm1IYVuvBQjpb89AJ0D6eamd7u4MxeWeEVE="
