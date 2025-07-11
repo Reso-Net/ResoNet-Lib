@@ -1,4 +1,3 @@
-import { randomUUID, createHash, randomBytes } from "crypto";
 import * as signalR from "@microsoft/signalr";
 import EventEmitter from "events";
 
@@ -21,12 +20,19 @@ function GenerateRandomMachineId(){
     return result;
 }
 
-function GenerateUID(){ 
-    let result = '';
-    const data = `resonet-${randomBytes(16).toString('base64')}`;
-    result = createHash('sha256').update(data).digest('hex').toUpperCase();
-    return result;
+function GenerateUID() {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  const randomBase64 = btoa(String.fromCharCode(...array));
+  const data = `resonet-${randomBase64}`;
+
+  return crypto.subtle.digest("SHA-256", new TextEncoder().encode(data))
+    .then(buffer => {
+      const hashArray = Array.from(new Uint8Array(buffer));
+      return hashArray.map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+    });
 }
+
 
 class ResoNetLib extends EventEmitter {
     constructor(config = null) {
@@ -279,7 +285,7 @@ class ResoNetLib extends EventEmitter {
     async sendMessage(userId, content) {
         this.log(`Sending "${content}" to ${userId}.`);
         const messageData = {
-            "id": `MSG-${ randomUUID() }`,
+            "id": `MSG-${ crypto.randomUUID() }`,
             "senderId": this.data.userId,
             "recipientId": userId,
             "messageType": "Text",
