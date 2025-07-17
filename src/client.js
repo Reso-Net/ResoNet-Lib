@@ -448,7 +448,11 @@ class ResoNetLib extends EventEmitter {
 
     
     stripTags(str) {
-        return str.replace(/<[^>]*>/g, '');
+        try {
+            return str.replace(/<[^>]*>/g, '')
+        } catch {
+            return str;
+        }
     }
 
     async idHash(id) {
