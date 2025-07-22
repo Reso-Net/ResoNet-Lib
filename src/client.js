@@ -371,10 +371,12 @@ class ResoNetLib extends EventEmitter {
             const res = await fetch(`${this.data.api}/users/${this.data.userId}/messages?user=${userId}`, { method: "GET", headers: { "Authorization": this.data.fullToken }}); // ?maxItems=${maxItems}&maxItems=${maxItems}&fromTime=${fromTime}&unread=${unreadOnly}
             if (!res.ok) throw (res.status);
             let json = await res.json();      
-            if (json == null) return;
+            if (json == null) return null;
             this.fetchUser(userId).UpdateContact({ messages: json.reverse() });
+            return json.reverse(); 
         } catch (error) {
             this.error(error);
+            return null
         }
     }
 
@@ -383,6 +385,17 @@ class ResoNetLib extends EventEmitter {
             await this.signalRConnection.send("MarkMessagesRead", readMessageData);
         } catch (error) {
             this.error(error);
+        }
+    }
+
+    async fetchUnreadMessages(userid) {
+        try {
+            let user = this.fetchUser(userid);
+            if (user.messages == null) await this.fetchMessages(user.userId);    
+            return user.messages.filter(message => message.readTime === undefined);
+        } catch (error) {
+            this.error(error);
+            return null;
         }
     }
 
