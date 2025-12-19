@@ -245,9 +245,22 @@ class ResoNetLib extends EventEmitter {
     }
 
     async fetchUserProfile(userId) {
-            try {
+        try {
             this.log(`Fetching User: ${userId}`);
             const res = await fetch(`${this.data.api}/users/${userId}`, {headers: {"Authorization": this.data.fullToken}});
+            if (!res.ok) throw (res.status);
+            let json = await res.json();  
+            return json; 
+        } catch (error) {
+            this.error(error);
+            return null;
+        }
+    }
+
+    async fetchUserStorage(userId) {
+        try {
+            this.log(`Fetching Storage for User: ${userId}`);
+            const res = await fetch(`${this.data.api}/users/${userId}/storage`, {headers: {"Authorization": this.data.fullToken}});
             if (!res.ok) throw (res.status);
             let json = await res.json();  
             return json; 
